@@ -1,0 +1,498 @@
+#!/usr/bin/env bash
+# crabterm - iTerm2 workspace manager for multi-repo development
+set -e
+
+CRABTERM_SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$CRABTERM_SOURCE" ]; do
+  CRABTERM_DIR="$(cd "$(dirname "$CRABTERM_SOURCE")" && pwd)"
+  CRABTERM_SOURCE="$(readlink "$CRABTERM_SOURCE")"
+  [[ "$CRABTERM_SOURCE" != /* ]] && CRABTERM_SOURCE="$CRABTERM_DIR/$CRABTERM_SOURCE"
+done
+CRABTERM_DIR="$(cd "$(dirname "$CRABTERM_SOURCE")" && pwd)"
+LIB="$CRABTERM_DIR/lib"
+
+source "$LIB/common.sh"
+source "$LIB/config.sh"
+source "$LIB/projects.sh"
+source "$LIB/iterm.sh"
+source "$LIB/state.sh"
+source "$LIB/ports.sh"
+source "$LIB/worktree.sh"
+source "$LIB/workspace.sh"
+source "$LIB/wip.sh"
+source "$LIB/session.sh"
+source "$LIB/review.sh"
+source "$LIB/pr.sh"
+source "$LIB/ticket.sh"
+source "$LIB/doctor.sh"
+source "$LIB/init.sh"
+source "$LIB/setup.sh"
+source "$LIB/infobar.sh"
+source "$LIB/help.sh"
+
+main() {
+  # @alias stripping: crab @pf ws 1 → resolve project, then route "ws 1"
+  PROJECT_ALIAS=""
+  if [[ "${1:-}" == @* ]]; then
+    resolve_project "$1"
+    shift
+  fi
+
+  # Resolve user-configured command aliases (before project + command dispatch)
+  if resolved=$(resolve_command_aliases "${1:-}"); then
+    shift
+    read -r -a resolved_parts <<<"$resolved"
+    set -- "${resolved_parts[@]}" "$@"
+  fi
+
+  # For project-aware commands, resolve project (cwd-first, then default)
+  case "${1:-}" in
+    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
+      if [ -z "$PROJECT_ALIAS" ]; then
+        if is_legacy_config; then
+          check_legacy_migration
+        fi
+        resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      fi
+      ;;
+  esac
+
+  case "${1:-}" in
+    "")
+      list_workspaces
+      ;;
+    "ws"|"workspace")
+      load_config
+      validate_config
+      handle_ws_command "${@:2}"
+      ;;
+    "init")
+      show_init "${@:2}"
+      ;;
+    "config")
+      if [ "${2:-}" = "scan" ]; then
+        config_scan
+      else
+        show_config
+      fi
+      ;;
+    "doctor")
+      if [ "${2:-}" = "--fix" ] || [ "${2:-}" = "fix" ]; then
+        local force=false
+        [ "${3:-}" = "--force" ] && force=true
+        doctor_fix "$force"
+      else
+        show_doctor
+      fi
+      ;;
+    "setup-terminal"|"setup")
+      setup_terminal
+      ;;
+    "cheat"|"help"|"-h"|"--help")
+      if [ "${1:-}" = "cheat" ]; then
+        show_cheat
+      else
+        show_help
+      fi
+      ;;
+    "ports")
+      show_ports
+      ;;
+    "shared")
+      show_shared
+      ;;
+    "session"|"sessions")
+      handle_session_command "${@:2}"
+      ;;
+    "review")
+      load_config 2>/dev/null || true
+      handle_review_command "${@:2}"
+      ;;
+    "court")
+      load_config 2>/dev/null || true
+      handle_court_command "${@:2}"
+      ;;
+    "pr")
+      load_config
+      validate_config
+      handle_pr_command "${@:2}"
+      ;;
+    "ticket"|"tkt")
+      load_config
+      validate_config
+      handle_ticket_command "${@:2}"
+      ;;
+    "projects"|"project"|"proj")
+      show_projects "${@:2}"
+      ;;
+    "default")
+      set_default_project "${2:-}"
+      ;;
+    "alias"|"aliases")
+      handle_alias_command "${@:2}"
+      ;;
+    "new"|"create")
+      load_config
+      validate_config
+      create_new_workspace
+      ;;
+    "restart"|"reset"|"refresh")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> restart"
+        exit 1
+      fi
+      restart_workspace "$num"
+      ;;
+    "continue"|"resume")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> continue"
+        exit 1
+      fi
+      continue_workspace "$num"
+      ;;
+    "cleanup"|"clean")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> cleanup"
+        exit 1
+      fi
+      cleanup_workspace "$num"
+      ;;
+    "switch"|"sw")
+      load_config
+      validate_config
+      switch_workspace "${2:-}"
+      ;;
+    "lock")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> lock"
+        exit 1
+      fi
+      lock_workspace "$num"
+      ;;
+    "unlock")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> unlock"
+        exit 1
+      fi
+      unlock_workspace "$num"
+      ;;
+    "unlock-all")
+      load_config
+      validate_config
+      unlock_all_workspaces
+      ;;
+    "kill")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Cannot detect workspace. Run from a workspace dir or use: crab ws <N> kill"
+        exit 1
+      fi
+      local ws_dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
+      echo -e "${YELLOW}Killing ports for workspace $num...${NC}"
+      kill_workspace_ports "$ws_dir"
+      ;;
+    "save")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+      if [ -z "$num" ]; then
+        error "Not in a workspace directory. Run from inside a workspace."
+        exit 1
+      fi
+      local do_restart="false"
+      local custom_name=""
+      shift
+      while [ $# -gt 0 ]; do
+        case "$1" in
+          --restart|-r)
+            do_restart="true"
+            shift
+            ;;
+          *)
+            custom_name="$1"
+            shift
+            ;;
+        esac
+      done
+      wip_save "$num" "$do_restart" "$custom_name"
+      ;;
+    "destroy"|"rm"|"remove")
+      load_config
+      validate_config
+      if [ -n "${2:-}" ] && [[ "${2:-}" =~ ^[0-9]+$ ]]; then
+        destroy_workspace "$2" "${3:-}"
+      else
+        num=$(detect_workspace)
+        if [ -z "$num" ]; then
+          error "Specify workspace: crab destroy <N>"
+          exit 1
+        fi
+        destroy_workspace "$num" "${2:-}"
+      fi
+      ;;
+    "wip")
+      load_config
+      validate_config
+      num=$(detect_workspace)
+
+      case "${2:-}" in
+        "save")
+          if [ -z "$num" ]; then
+            error "Not in a workspace directory. Use: crab ws <N> wip save"
+            exit 1
+          fi
+          local do_restart="false"
+          local custom_name=""
+          shift 2
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --restart|-r)
+                do_restart="true"
+                shift
+                ;;
+              *)
+                custom_name="$1"
+                shift
+                ;;
+            esac
+          done
+          wip_save "$num" "$do_restart" "$custom_name"
+          ;;
+        "ls"|"list")
+          local dir_ws=$(detect_workspace_from_dir)
+          if [ "${3:-}" = "--ws" ] && [ -n "$num" ]; then
+            wip_list "$num"
+          elif [ -n "$dir_ws" ] && [ "${3:-}" != "--all" ] && [ "${3:-}" != "-a" ]; then
+            wip_list "$dir_ws"
+            echo -e "${GRAY}Use 'crab wip ls --all' to see all workspaces${NC}"
+          else
+            wip_list_global
+          fi
+          ;;
+        "restore")
+          local target_ws=""
+          local index=""
+          local open_after="false"
+          shift 2
+
+          while [ $# -gt 0 ]; do
+            case "$1" in
+              --to)
+                target_ws="${2:-}"
+                shift 2
+                ;;
+              --open|-o)
+                open_after="true"
+                shift
+                ;;
+              *)
+                if [ -z "$index" ] && [[ "$1" =~ ^[0-9]+$ ]]; then
+                  index="$1"
+                fi
+                shift
+                ;;
+            esac
+          done
+
+          if [ -z "$index" ]; then
+            wip_restore_global "$target_ws" "$open_after"
+          else
+            wip_restore_by_index "$index" "$target_ws" "$open_after"
+          fi
+          ;;
+        "--continue"|"-c")
+          if [ -z "$num" ]; then
+            error "Not in a workspace directory. Use: crab wip restore"
+            exit 1
+          fi
+          local open_flag="false"
+          if [ "${3:-}" = "--open" ] || [ "${3:-}" = "-o" ]; then
+            open_flag="true"
+          fi
+          wip_continue "$num" "$open_flag"
+          ;;
+        "--resume"|"-r"|"resume")
+          if [ -z "$num" ]; then
+            wip_restore_global
+          else
+            wip_resume "$num"
+          fi
+          ;;
+        "delete"|"rm")
+          if [ -z "$num" ]; then
+            error "Not in a workspace directory. Use: crab ws <N> wip delete <name>"
+            exit 1
+          fi
+          wip_delete "$num" "${3:-}"
+          ;;
+        *)
+          echo -e "${CYAN}WIP Commands:${NC}"
+          echo ""
+          if [ -n "$num" ]; then
+            echo -e "  ${BOLD}In workspace $num:${NC}"
+            echo "    crab wip save [--restart]  Save current changes"
+            echo "    crab wip ls                List WIPs for this workspace"
+            echo "    crab wip --continue        Restore most recent WIP"
+            echo "    crab wip --resume          Interactive WIP selection"
+            echo "    crab wip delete <name>     Delete a WIP state"
+            echo ""
+          fi
+          echo -e "  ${BOLD}Global commands:${NC}"
+          echo "    crab wip ls                List all WIPs (global view)"
+          echo "    crab wip restore           Interactive restore from all WIPs"
+          echo "    crab wip restore <N>       Restore WIP #N to its original workspace"
+          echo "    crab wip restore <N> --to <ws>  Restore WIP #N to workspace <ws>"
+          echo "    crab wip restore <N> --open     Restore and open workspace"
+          echo ""
+          echo "  Restores: branch, commits, staged/unstaged changes, submodules"
+          ;;
+      esac
+      ;;
+    "_infobar-render")
+      # Internal command: render info bar for a workspace directory
+      # Usage: crabterm _infobar-render <workspace-dir> [pull-label]
+      local render_dir="${2:-}"
+      local pull_label="${3:-}"
+      if [ -z "$render_dir" ]; then
+        error "Usage: crabterm _infobar-render <workspace-dir>"
+        exit 1
+      fi
+      sync_workspace_pr "$render_dir"
+      render_infobar "$render_dir"
+      render_infobar_actions "$render_dir" "$pull_label"
+      ;;
+    "_quit-workspace")
+      # Internal command: gracefully quit a workspace (save WIP, close panes)
+      # Called from the info bar script
+      local quit_dir="${2:-}"
+      if [ -z "$quit_dir" ]; then
+        error "Usage: crabterm _quit-workspace <workspace-dir>"
+        exit 1
+      fi
+      cd "$quit_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      load_config
+      validate_config
+      quit_workspace "$quit_dir"
+      ;;
+    "_kill-ports")
+      # Internal command: kill processes on managed ports for a workspace
+      # Called from the info bar script
+      local kill_dir="${2:-}"
+      if [ -z "$kill_dir" ]; then
+        error "Usage: crabterm _kill-ports <workspace-dir>"
+        exit 1
+      fi
+      cd "$kill_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      load_config
+      validate_config
+      kill_workspace_ports "$kill_dir"
+      ;;
+    "_cleanup-workspace")
+      # Internal command: cleanup workspace (reset git, unlock, close panes)
+      # Called from the info bar script
+      local cleanup_dir="${2:-}"
+      if [ -z "$cleanup_dir" ]; then
+        error "Usage: crabterm _cleanup-workspace <workspace-dir>"
+        exit 1
+      fi
+      cd "$cleanup_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      load_config
+      validate_config
+      cleanup_workspace_infobar "$cleanup_dir"
+      ;;
+    "update"|"upgrade")
+      echo -e "${CYAN}Updating crabterm...${NC}"
+      local install_dir=$(dirname "$(realpath "$0")")
+      local tmp_file="/tmp/crabterm-update-$$"
+
+      if curl -fsSL "https://raw.githubusercontent.com/promptfoo/crabterm/main/src/crabterm" -o "$tmp_file" 2>/dev/null; then
+        local new_version=$(grep '^VERSION=' "$tmp_file" | cut -d'"' -f2)
+        local current_version="$VERSION"
+
+        if [ "$new_version" = "$current_version" ]; then
+          echo -e "${GREEN}Already up to date (v$VERSION)${NC}"
+        else
+          chmod +x "$tmp_file"
+          mv "$tmp_file" "$install_dir/crabterm"
+          echo -e "${GREEN}Updated: v$current_version → v$new_version${NC}"
+        fi
+      else
+        error "Failed to download update"
+        rm -f "$tmp_file"
+        exit 1
+      fi
+      rm -f "$tmp_file"
+      ;;
+    "--version"|"-v")
+      echo '  /)🦀(\'
+      echo "crabterm v$VERSION"
+      ;;
+    *)
+      # Auto-detect URL type: route GitHub PR URLs and Linear ticket URLs
+      if [[ "$1" =~ ^https://github\.com/[^/]+/[^/]+/pull/[0-9]+ ]]; then
+        if [ -z "$PROJECT_ALIAS" ]; then
+          if is_legacy_config; then
+            check_legacy_migration
+          fi
+          resolve_project_from_cwd 2>/dev/null || resolve_project ""
+        fi
+        load_config
+        validate_config
+        handle_pr_command "$1"
+      elif [[ "$1" =~ ^https://linear\.app/ ]]; then
+        if [ -z "$PROJECT_ALIAS" ]; then
+          if is_legacy_config; then
+            check_legacy_migration
+          fi
+          resolve_project_from_cwd 2>/dev/null || resolve_project ""
+        fi
+        load_config
+        validate_config
+        handle_ticket_command "$1"
+      # Backwards compatibility: crab <N> -> crab ws <N>
+      elif [[ "$1" =~ ^[0-9]+$ ]]; then
+        if [ -z "$PROJECT_ALIAS" ]; then
+          if is_legacy_config; then
+            check_legacy_migration
+          fi
+          resolve_project_from_cwd 2>/dev/null || resolve_project ""
+        fi
+        load_config
+        validate_config
+        handle_ws_command "$@"
+      else
+        error "Unknown command: $1"
+        echo ""
+        echo "Usage: crab ws <N>       Open workspace N"
+        echo "       crab @alias ws <N> Open workspace for specific project"
+        echo "       crab ws new       Create new workspace"
+        echo "       crab restart      Restart current workspace"
+        echo "       crab projects     List registered projects"
+        echo "       crab cheat        Show all commands"
+        exit 1
+      fi
+      ;;
+  esac
+}
+
+main "$@"

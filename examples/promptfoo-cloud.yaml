@@ -1,0 +1,66 @@
+# Example: Promptfoo Cloud Configuration
+# The original use case that inspired crabterm
+
+session_name: crab
+workspace_base: ~/Dev-Promptfoo/subfolder
+main_repo: ~/Dev-Promptfoo/promptfoo-cloud
+
+workspaces:
+  count: 5
+  prefix: cloud-workspace
+  branch_pattern: workspace-{N}
+
+ports:
+  api_base: 3200    # ws1=3201, ws2=3202, etc.
+  app_base: 3000    # ws1=3001, ws2=3002, etc.
+
+install_command: pnpm install
+
+layout:
+  panes:
+    - name: terminal
+      command: ""
+    - name: server
+      command: pnpm dev
+    - name: main
+      command: claude --dangerously-skip-permissions --chrome
+
+env_sync:
+  files:
+    - path: server/.env              # copies from main_repo/server/.env
+      ports: [API_PORT, ADMIN_PORT]  # managed: incremented per workspace
+      overrides:                     # optional: override specific vars per workspace
+        DEBUG: "true"
+    - path: app/.env                 # copies from main_repo/app/.env
+      ports: [VITE_PORT]
+      refs:                          # URL vars that reference managed ports
+        VITE_API_URL: API_PORT       # rewrites :3200 → :3201 for ws1
+    - path: promptfoo/.env           # copies from main_repo/promptfoo/.env
+      refs:
+        PROMPTFOO_REMOTE_GENERATION_URL: API_PORT
+    - path: fusionauth/.env         # copies from main_repo/fusionauth/.env
+
+ticket:
+  linear_base_url: https://linear.app/promptfoo/issue  # enables clickable ticket links in info bar
+
+submodules:
+  - path: promptfoo
+    reset_to: origin/main
+    install_command: pnpm install
+
+cleanup:
+  preserve_files: ".env"
+  kill_pattern: "cloud-workspace-{N}.*pnpm|cloud-workspace-{N}.*node"
+
+# Review settings: filter noisy auto-generated files from PR reviews
+# Patterns use bash glob matching against the file's basename
+review:
+  ignore_files:
+    - "*_snapshot.json"           # Drizzle migration snapshots
+
+# Shared volume: persists across workspace resets
+# Great for local experiments, PR reviews, research notes
+shared_volume:
+  enabled: true
+  path: ~/.crabterm/shared    # Central location for shared files
+  link_as: .local             # Symlink name in each workspace
