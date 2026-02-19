@@ -495,9 +495,9 @@ create_workspace_layout() {
     infobar_cmd=$(get_infobar_command "$dir")
     iterm_send_text "$info_sid" "cd '$dir' && clear && $infobar_cmd"
     sleep 0.3
-    iterm_resize_session "$info_sid" 2
+    iterm_resize_session "$info_sid" 3
     # Second resize in background to catch tiling window manager expansion
-    (sleep 2 && iterm_resize_session "$info_sid" 2) &
+    (sleep 2 && iterm_resize_session "$info_sid" 3) &
   fi
 
   # Export layout IDs for callers that manage their own state
