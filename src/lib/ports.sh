@@ -312,6 +312,37 @@ kill_workspace_ports() {
     fi
   fi
 
+  # --- Phase 1.5: kill by workspace working directory ---
+  # Find server processes whose cwd is inside the workspace directory.
+  # Most reliable approach — handles port collisions and bumped ports.
+  if [ -d "$dir" ]; then
+    local listen_pids=$(lsof -i TCP -sTCP:LISTEN -t 2>/dev/null | sort -u)
+    for pid in $listen_pids; do
+      # Skip if already killed by Phase 1
+      local pgid=$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')
+      local already_killed=false
+      for kpg in "${pgids_killed[@]:-}"; do
+        [ "$kpg" = "$pgid" ] && already_killed=true && break
+      done
+      [ "$already_killed" = true ] && continue
+
+      # Check if this process's cwd is in the workspace
+      local pcwd=$(lsof -p "$pid" -d cwd -Fn 2>/dev/null | grep '^n' | head -1 | cut -c2-)
+      if [ -n "$pcwd" ] && [[ "$pcwd" == "$dir"* ]]; then
+        if [ -n "$pgid" ] && [ "$pgid" -gt 1 ] 2>/dev/null; then
+          [ "$quiet" != "true" ] && echo -e "  ${YELLOW}Killing pid $pid (cwd match, group $pgid)${NC}"
+          kill -9 -"$pgid" 2>/dev/null || kill -9 "$pid" 2>/dev/null || true
+          pgids_killed+=("$pgid")
+          killed=$((killed + 1))
+        else
+          [ "$quiet" != "true" ] && echo -e "  ${YELLOW}Killing pid $pid (cwd match)${NC}"
+          kill -9 "$pid" 2>/dev/null || true
+          killed=$((killed + 1))
+        fi
+      fi
+    done
+  fi
+
   # --- Phase 2: port-based kill for any remaining listeners ---
   _kill_ports=()
 
