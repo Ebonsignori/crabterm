@@ -98,13 +98,19 @@ handle_ticket_command() {
     existing_branch=$(cd "$existing_dir" && git branch --show-current 2>/dev/null)
     echo -e "${GREEN}Found existing workspace $existing_num on branch $existing_branch${NC}"
 
+    # Use the branch name for the tab title if it's a real branch (not the default workspace pattern)
+    local tab_name="$identifier"
+    if [ -n "$existing_branch" ]; then
+      tab_name="$existing_branch"
+    fi
+
     # Write metadata so info bar has content
     write_workspace_meta "$existing_num" "ticket" \
-      "name" "$identifier" \
+      "name" "$tab_name" \
       "ticket" "$identifier" \
       "ticket_url" "$ticket_url"
 
-    set_workspace_name "$existing_num" "$identifier"
+    set_workspace_name "$existing_num" "$tab_name"
     open_workspace "$existing_num"
     return
   fi

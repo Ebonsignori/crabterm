@@ -197,7 +197,7 @@ handle_pr_command() {
 
     # Write metadata so info bar has content
     local meta_args=("$existing_num" "pr" \
-      "name" "PR #$number: $PR_TITLE" \
+      "name" "$PR_BRANCH" \
       "pr_number" "$number" \
       "pr_url" "$PR_URL" \
       "pr_title" "$PR_TITLE")
@@ -205,7 +205,7 @@ handle_pr_command() {
     [ -n "$ticket_url" ] && meta_args+=("ticket_url" "$ticket_url")
     write_workspace_meta "${meta_args[@]}"
 
-    set_workspace_name "$existing_num" "PR #$number: $PR_TITLE"
+    set_workspace_name "$existing_num" "$PR_BRANCH"
     open_workspace "$existing_num"
     return
   fi
@@ -243,8 +243,8 @@ handle_pr_command() {
     exit 1
   fi
 
-  # Name the workspace after the PR
-  set_workspace_name "$num" "PR #$number: $PR_TITLE"
+  # Name the workspace after the PR branch
+  set_workspace_name "$num" "$PR_BRANCH"
 
   # Extract ticket info from branch name, PR body, and comments
   local ticket_id ticket_url
@@ -261,7 +261,7 @@ handle_pr_command() {
 
   # Write workspace metadata for info bar
   local meta_args=("$num" "pr" \
-    "name" "PR #$number: $PR_TITLE" \
+    "name" "$PR_BRANCH" \
     "pr_number" "$number" \
     "pr_url" "$PR_URL" \
     "pr_title" "$PR_TITLE")
@@ -328,8 +328,8 @@ handle_ws_pr_command() {
     exit 1
   fi
 
-  # Name the workspace after the PR
-  set_workspace_name "$num" "PR #$number: $PR_TITLE"
+  # Name the workspace after the PR branch
+  set_workspace_name "$num" "$PR_BRANCH"
 
   # Extract ticket info from branch name, PR body, and comments
   local ticket_id ticket_url
@@ -346,7 +346,7 @@ handle_ws_pr_command() {
 
   # Write workspace metadata for info bar
   local meta_args=("$num" "pr" \
-    "name" "PR #$number: $PR_TITLE" \
+    "name" "$PR_BRANCH" \
     "pr_number" "$number" \
     "pr_url" "$PR_URL" \
     "pr_title" "$PR_TITLE")

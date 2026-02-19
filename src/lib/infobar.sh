@@ -1,6 +1,27 @@
 #!/usr/bin/env bash
 # crabterm - workspace info bar (bottom status pane with clickable links)
 
+# Ensure .crabterm-* files are git-excluded so git clean -fd won't remove them
+ensure_crabterm_git_excludes() {
+  local dir="$1"
+  local git_dir
+  git_dir=$(cd "$dir" && git rev-parse --git-dir 2>/dev/null) || return 0
+
+  # For worktrees, git-dir is absolute; for regular repos it's relative
+  if [[ "$git_dir" != /* ]]; then
+    git_dir="$dir/$git_dir"
+  fi
+
+  local exclude_file="$git_dir/info/exclude"
+  mkdir -p "$(dirname "$exclude_file")"
+
+  if ! grep -q '\.crabterm-' "$exclude_file" 2>/dev/null; then
+    echo "" >> "$exclude_file"
+    echo "# crabterm workspace files" >> "$exclude_file"
+    echo ".crabterm-*" >> "$exclude_file"
+  fi
+}
+
 # Write workspace metadata to .crabterm-meta JSON file
 # Usage: write_workspace_meta <num> <type> [key value ...]
 write_workspace_meta() {
@@ -41,6 +62,9 @@ write_workspace_meta() {
   fi
 
   echo "$json" > "$meta_file"
+
+  # Protect .crabterm-* files from git clean
+  ensure_crabterm_git_excludes "$dir"
 }
 
 # Extract a ticket identifier (e.g. ENG-123) from a branch name
@@ -69,6 +93,8 @@ clear_workspace_meta() {
 }
 
 # Check if a PR exists for the current branch and update metadata
+# Note: This function must be safe to call under set -e from the info bar render loop.
+# All external commands (jq, gh) are guarded so failures don't kill the render.
 sync_workspace_pr() {
   local dir="$1"
   local meta_file="$dir/.crabterm-meta"
@@ -76,27 +102,27 @@ sync_workspace_pr() {
   [ -f "$meta_file" ] || return 0
 
   local type pr_url
-  type=$(jq -r '.type // ""' "$meta_file" 2>/dev/null)
-  pr_url=$(jq -r '.pr_url // ""' "$meta_file" 2>/dev/null)
+  type=$(jq -r '.type // ""' "$meta_file" 2>/dev/null) || return 0
+  pr_url=$(jq -r '.pr_url // ""' "$meta_file" 2>/dev/null) || return 0
 
   # Only sync if type is ticket and no PR discovered yet
   [ "$type" = "ticket" ] || return 0
   [ -z "$pr_url" ] || return 0
 
   local branch
-  branch=$(cd "$dir" && git branch --show-current 2>/dev/null)
+  branch=$(cd "$dir" && git branch --show-current 2>/dev/null) || return 0
   [ -n "$branch" ] || return 0
 
   local pr_json
-  pr_json=$(cd "$dir" && gh pr list --head "$branch" --json number,url,title --limit 1 2>/dev/null)
+  pr_json=$(cd "$dir" && gh pr list --head "$branch" --json number,url,title --limit 1 2>/dev/null) || return 0
   [ -n "$pr_json" ] || return 0
 
   local pr_number pr_title pr_found_url
-  pr_number=$(echo "$pr_json" | jq -r '.[0].number // empty' 2>/dev/null)
+  pr_number=$(echo "$pr_json" | jq -r '.[0].number // empty' 2>/dev/null) || return 0
   [ -n "$pr_number" ] || return 0
 
-  pr_title=$(echo "$pr_json" | jq -r '.[0].title // ""' 2>/dev/null)
-  pr_found_url=$(echo "$pr_json" | jq -r '.[0].url // ""' 2>/dev/null)
+  pr_title=$(echo "$pr_json" | jq -r '.[0].title // ""' 2>/dev/null) || true
+  pr_found_url=$(echo "$pr_json" | jq -r '.[0].url // ""' 2>/dev/null) || true
 
   # Update the metadata file with PR info
   local updated
@@ -105,7 +131,7 @@ sync_workspace_pr() {
     --arg url "$pr_found_url" \
     --arg title "$pr_title" \
     '. + {pr_number: $num, pr_url: $url, pr_title: $title}' \
-    "$meta_file")
+    "$meta_file") || return 0
   echo "$updated" > "$meta_file"
 }
 
@@ -127,15 +153,16 @@ render_infobar() {
     return
   fi
 
-  local type name pr_number pr_url pr_title ticket port
-  type=$(jq -r '.type // ""' "$meta_file" 2>/dev/null)
-  name=$(jq -r '.name // ""' "$meta_file" 2>/dev/null)
-  pr_number=$(jq -r '.pr_number // ""' "$meta_file" 2>/dev/null)
-  pr_url=$(jq -r '.pr_url // ""' "$meta_file" 2>/dev/null)
-  pr_title=$(jq -r '.pr_title // ""' "$meta_file" 2>/dev/null)
-  ticket=$(jq -r '.ticket // ""' "$meta_file" 2>/dev/null)
-  ticket_url=$(jq -r '.ticket_url // ""' "$meta_file" 2>/dev/null)
-  port=$(jq -r '.port // ""' "$meta_file" 2>/dev/null)
+  # Guard each jq call with || true so set -e doesn't kill the render
+  local type name pr_number pr_url pr_title ticket ticket_url port
+  type=$(jq -r '.type // ""' "$meta_file" 2>/dev/null) || true
+  name=$(jq -r '.name // ""' "$meta_file" 2>/dev/null) || true
+  pr_number=$(jq -r '.pr_number // ""' "$meta_file" 2>/dev/null) || true
+  pr_url=$(jq -r '.pr_url // ""' "$meta_file" 2>/dev/null) || true
+  pr_title=$(jq -r '.pr_title // ""' "$meta_file" 2>/dev/null) || true
+  ticket=$(jq -r '.ticket // ""' "$meta_file" 2>/dev/null) || true
+  ticket_url=$(jq -r '.ticket_url // ""' "$meta_file" 2>/dev/null) || true
+  port=$(jq -r '.port // ""' "$meta_file" 2>/dev/null) || true
 
   # Line 1: title
   local title="${lock_icon}"
@@ -169,18 +196,15 @@ render_infobar() {
     links+=("\033]8;;${localhost_url}\a\xF0\x9F\x8C\x90 localhost:${port}\033]8;;\a")
   fi
 
-  # Custom links from config
-  local links_count
-  links_count=$(jq -r '.links | length // 0' "$meta_file" 2>/dev/null)
-  if [ "$links_count" -gt 0 ] 2>/dev/null; then
-    for ((i=0; i<links_count; i++)); do
-      local label url
-      label=$(jq -r ".links[$i].label // \"\"" "$meta_file" 2>/dev/null)
-      url=$(jq -r ".links[$i].url // \"\"" "$meta_file" 2>/dev/null)
+  # Custom links from config (read all at once)
+  local links_data
+  links_data=$(jq -r '(.links // [])[] | "\(.label // "")\t\(.url // "")"' "$meta_file" 2>/dev/null) || true
+  if [ -n "$links_data" ]; then
+    while IFS=$'\t' read -r label url; do
       if [ -n "$label" ] && [ -n "$url" ]; then
         links+=("\033]8;;${url}\a${label}\033]8;;\a")
       fi
-    done
+    done <<< "$links_data"
   fi
 
   if [ ${#links[@]} -gt 0 ]; then

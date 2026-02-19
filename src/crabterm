@@ -374,8 +374,9 @@ main() {
         error "Usage: crabterm _infobar-render <workspace-dir>"
         exit 1
       fi
-      sync_workspace_pr "$render_dir"
-      render_infobar "$render_dir"
+      # sync and render must not fail under set -e (called from info bar loop)
+      sync_workspace_pr "$render_dir" || true
+      render_infobar "$render_dir" || true
       render_infobar_actions "$render_dir" "$pull_label"
       ;;
     "_quit-workspace")
@@ -454,7 +455,7 @@ main() {
           if is_legacy_config; then
             check_legacy_migration
           fi
-          resolve_project_from_cwd 2>/dev/null || resolve_project ""
+          resolve_project_from_github_url "$1" 2>/dev/null || resolve_project_from_cwd 2>/dev/null || resolve_project ""
         fi
         load_config
         validate_config

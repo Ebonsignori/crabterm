@@ -169,7 +169,7 @@ prepare_workspace_for_reuse() {
 
   echo "  Cleaning untracked files..."
   local exclude_pattern=$(config_get "cleanup.preserve_files" ".env")
-  git clean -fd --exclude="$exclude_pattern" 2>/dev/null || true
+  git clean -fd --exclude="$exclude_pattern" --exclude=".crabterm-*" 2>/dev/null || true
 
   reset_submodules "$dir"
 
@@ -805,7 +805,7 @@ cleanup_workspace() {
 
   echo "  Cleaning untracked files..."
   local exclude_pattern=$(config_get "cleanup.preserve_files" ".env")
-  git clean -fd --exclude="$exclude_pattern"
+  git clean -fd --exclude="$exclude_pattern" --exclude=".crabterm-*"
 
   reset_submodules "$dir"
 
@@ -910,7 +910,7 @@ restart_workspace() {
 
   echo "  Cleaning untracked files..."
   local exclude_pattern=$(config_get "cleanup.preserve_files" ".env")
-  git clean -fd --exclude="$exclude_pattern"
+  git clean -fd --exclude="$exclude_pattern" --exclude=".crabterm-*"
 
   reset_submodules "$dir"
   setup_shared_volume "$dir"
@@ -1135,7 +1135,7 @@ cleanup_workspace_infobar() {
   git reset --hard origin/main 2>/dev/null || true
 
   local exclude_pattern=$(config_get "cleanup.preserve_files" ".env")
-  git clean -fd --exclude="$exclude_pattern" 2>/dev/null || true
+  git clean -fd --exclude="$exclude_pattern" --exclude=".crabterm-*" 2>/dev/null || true
 
   reset_submodules "$dir"
 

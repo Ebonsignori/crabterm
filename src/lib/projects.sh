@@ -59,6 +59,46 @@ resolve_default_project() {
   fi
 }
 
+# Try to resolve the correct project by matching a GitHub URL's owner/repo
+# against the remote origin of each project's main_repo
+resolve_project_from_github_url() {
+  local url="${1:-}"
+
+  # Extract owner/repo from GitHub PR URL
+  local url_owner_repo
+  url_owner_repo=$(echo "$url" | sed -n 's|.*github\.com[:/]\([^/]*/[^/]*\).*|\1|p')
+  url_owner_repo="${url_owner_repo%.git}"
+  [ -z "$url_owner_repo" ] && return 1
+
+  if [ ! -d "$PROJECTS_DIR" ]; then
+    return 1
+  fi
+
+  for f in "$PROJECTS_DIR"/*.yaml; do
+    [ -f "$f" ] || continue
+    local repo=$(yq -r '.main_repo // ""' "$f" 2>/dev/null)
+    [ -z "$repo" ] || [ "$repo" = "null" ] && continue
+    repo="${repo/#\~/$HOME}"
+    [ -d "$repo" ] || continue
+
+    local remote_url
+    remote_url=$(git -C "$repo" remote get-url origin 2>/dev/null) || continue
+    local remote_owner_repo
+    remote_owner_repo=$(echo "$remote_url" | sed -n 's|.*github\.com[:/]\([^/]*/[^/]*\).*|\1|p')
+    remote_owner_repo="${remote_owner_repo%.git}"
+    [ -z "$remote_owner_repo" ] && continue
+
+    if [ "$url_owner_repo" = "$remote_owner_repo" ]; then
+      local alias=$(basename "$f" .yaml)
+      CONFIG_FILE="$f"
+      PROJECT_ALIAS="$alias"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
 # Try to resolve the correct project from the current working directory
 resolve_project_from_cwd() {
   local cwd=$(pwd)
