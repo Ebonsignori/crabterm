@@ -65,6 +65,9 @@ write_workspace_meta() {
 
   # Protect .crabterm-* files from git clean
   ensure_crabterm_git_excludes "$dir"
+
+  # Update tab title to reflect new metadata
+  update_tab_title "$num"
 }
 
 # Extract a ticket identifier (e.g. ENG-123) from a branch name
@@ -133,6 +136,13 @@ sync_workspace_pr() {
     '. + {pr_number: $num, pr_url: $url, pr_title: $title}' \
     "$meta_file") || return 0
   echo "$updated" > "$meta_file"
+
+  # Update tab title to include PR title
+  local ws_num
+  ws_num=$(basename "$dir" | sed "s/${WORKSPACE_PREFIX}-//")
+  if [[ "$ws_num" =~ ^[0-9]+$ ]] && [ -n "${SESSION_NAME:-}" ]; then
+    update_tab_title "$ws_num" 2>/dev/null || true
+  fi
 }
 
 # Render a single info bar line with OSC 8 clickable links

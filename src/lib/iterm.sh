@@ -234,7 +234,8 @@ iterm_set_tab_name() {
   " 2>/dev/null
 }
 
-# Rename the tab containing a specific session
+# Rename all sessions in the tab containing a specific session
+# Sets every pane's title so the tab name is correct regardless of focus
 iterm_rename_tab_by_session() {
   local session_id="$1"
   local name="$2"
@@ -244,9 +245,11 @@ iterm_rename_tab_by_session() {
         repeat with aTab in tabs of aWindow
           repeat with aSession in sessions of aTab
             if (unique ID of aSession) = \"$session_id\" then
-              tell aSession
-                set name to \"$name\"
-              end tell
+              repeat with s in sessions of aTab
+                tell s
+                  set name to \"$name\"
+                end tell
+              end repeat
               return
             end if
           end repeat

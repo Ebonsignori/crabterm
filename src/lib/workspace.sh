@@ -28,11 +28,8 @@ set_workspace_name() {
 
   echo "$name" > "$dir/.crabterm-name"
 
-  # Update iTerm2 tab title if workspace is active
-  if state_workspace_exists "$SESSION_NAME" "$num"; then
-    state_load_workspace "$SESSION_NAME" "$num"
-    iterm_rename_tab_by_session "$WS_MAIN_SID" "$name" 2>/dev/null || true
-  fi
+  # Update iTerm2 tab title if workspace is active (uses computed title from metadata)
+  update_tab_title "$num"
 }
 
 # Clear the custom name for a workspace
@@ -40,6 +37,61 @@ clear_workspace_name() {
   local num=$1
   local dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
   rm -f "$dir/.crabterm-name"
+}
+
+# Compute the terminal tab title for a workspace
+# Priority: {name}: {PR title} > {name} (ticket) > {branch} > ws{N}
+compute_tab_title() {
+  local num="$1"
+  local dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
+  local meta_file="$dir/.crabterm-meta"
+  local name
+  name=$(get_workspace_name "$num")
+
+  local title=""
+
+  if [ -f "$meta_file" ]; then
+    local pr_title ticket
+    pr_title=$(jq -r '.pr_title // ""' "$meta_file" 2>/dev/null) || true
+    ticket=$(jq -r '.ticket // ""' "$meta_file" 2>/dev/null) || true
+
+    if [ -n "$pr_title" ]; then
+      title="$name: $pr_title"
+    elif [ -n "$ticket" ]; then
+      # Ticket ID is often the workspace name already; avoid "ENG-123: ENG-123"
+      title="$name"
+    fi
+  fi
+
+  # If no PR/ticket metadata, show branch (or workspace name as fallback)
+  if [ -z "$title" ]; then
+    local branch
+    branch=$(cd "$dir" && git branch --show-current 2>/dev/null) || true
+    if [ -n "$branch" ] && [ "$branch" != "main" ] && [ "$branch" != "master" ]; then
+      title="$branch"
+    else
+      title="$name"
+    fi
+  fi
+
+  # Truncate to 60 chars
+  if [ ${#title} -gt 60 ]; then
+    title="${title:0:57}..."
+  fi
+
+  echo "$title"
+}
+
+# Update the iTerm2 tab title for an active workspace using computed title
+update_tab_title() {
+  local num="$1"
+
+  if state_workspace_exists "$SESSION_NAME" "$num"; then
+    local title
+    title=$(compute_tab_title "$num")
+    state_load_workspace "$SESSION_NAME" "$num"
+    iterm_rename_tab_by_session "$WS_MAIN_SID" "$title" 2>/dev/null || true
+  fi
 }
 
 # =============================================================================
@@ -515,6 +567,9 @@ create_workspace_layout() {
   if [ -n "$ws_num" ]; then
     state_save_workspace "$SESSION_NAME" "$ws_num" "$window_id" "$tab_id" "$terminal_sid" "$server_sid" "$main_sid" "$info_sid"
   fi
+
+  # Set the computed title on all panes so the tab name is correct regardless of focus
+  iterm_rename_tab_by_session "$terminal_sid" "$window_name" 2>/dev/null || true
 }
 
 # Check and setup workspace (dependencies, .env sync, shared volume)
@@ -617,7 +672,7 @@ open_workspace() {
   local initial_prompt="${2:-}"
   local dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
   local window_name
-  window_name=$(get_workspace_name "$num")
+  window_name=$(compute_tab_title "$num")
 
   if [ ! -d "$dir" ]; then
     create_workspace "$num"
@@ -759,7 +814,7 @@ open_workspace_separate() {
   [ "$need_override" = "true" ] && port_msg="Port $env_api_port in use → using $api_port"
 
   local window_name
-  window_name=$(get_workspace_name "$num")
+  window_name=$(compute_tab_title "$num")
   create_workspace_layout "$window_name" "$dir" "$dev_cmd" "$claude_cmd" "$port_msg" "new" "$num"
 }
 
@@ -883,7 +938,7 @@ restart_workspace() {
   local num=$1
   local dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
   local window_name
-  window_name=$(get_workspace_name "$num")
+  window_name=$(compute_tab_title "$num")
   local branch_name=$(get_branch_name "$num")
 
   if [ ! -d "$dir" ]; then
@@ -954,7 +1009,7 @@ continue_workspace() {
   local num=$1
   local dir="$WORKSPACE_BASE/$WORKSPACE_PREFIX-$num"
   local window_name
-  window_name=$(get_workspace_name "$num")
+  window_name=$(compute_tab_title "$num")
 
   if [ ! -d "$dir" ]; then
     error "Workspace $num does not exist at $dir"
