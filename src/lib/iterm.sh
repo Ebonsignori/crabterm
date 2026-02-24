@@ -198,6 +198,7 @@ iterm_focus_session() {
         repeat with aTab in tabs of aWindow
           repeat with aSession in sessions of aTab
             if (unique ID of aSession) = \"$session_id\" then
+              select aWindow
               tell aWindow
                 select aTab
               end tell

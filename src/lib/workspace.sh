@@ -1083,19 +1083,16 @@ create_new_workspace() {
 # Quit / Cleanup Workspace (from info bar)
 # =============================================================================
 
-# Close other panes, kill processes, remove state
+# Close workspace panes, kill processes, remove state
 # Shared helper for quit_workspace and cleanup_workspace_infobar
-# Called from the info bar pane — does NOT close the info pane itself
+# Closes the entire tab (individual session close is unreliable due to
+# iTerm2 confirmation dialogs on sessions with running processes)
 _close_workspace_panes() {
   local dir="$1"
   local num
   num=$(basename "$dir" | sed "s/${WORKSPACE_PREFIX}-//")
 
   if state_load_workspace "$SESSION_NAME" "$num"; then
-    iterm_close_session "$WS_TERMINAL_SID" 2>/dev/null || true
-    iterm_close_session "$WS_SERVER_SID" 2>/dev/null || true
-    iterm_close_session "$WS_MAIN_SID" 2>/dev/null || true
-
     # Kill running processes
     local kill_pattern=$(config_get "cleanup.kill_pattern" "")
     if [ -n "$kill_pattern" ]; then
@@ -1105,6 +1102,10 @@ _close_workspace_panes() {
     fi
 
     state_remove_workspace "$SESSION_NAME" "$num"
+
+    # Close the entire tab — individual session close is unreliable
+    local close_sid="${WS_INFO_SID:-$WS_MAIN_SID}"
+    iterm_close_tab_by_session "$close_sid" 2>/dev/null || true
   fi
 }
 
@@ -1120,13 +1121,11 @@ quit_workspace() {
   _close_workspace_panes "$dir"
 }
 
-# Cleanup a workspace from the info bar: reset git, unlock, clear metadata, close panes
+# Cleanup a workspace from the info bar: reset git, unlock, clear metadata, close tab
 cleanup_workspace_infobar() {
   local dir="$1"
   local num
   num=$(basename "$dir" | sed "s/${WORKSPACE_PREFIX}-//")
-
-  _close_workspace_panes "$dir"
 
   # Reset git to origin/main
   cd "$dir"
@@ -1143,6 +1142,9 @@ cleanup_workspace_infobar() {
   rm -f "$dir/.crabterm-lock"
   clear_workspace_name "$num"
   clear_workspace_meta "$num"
+
+  # Close tab last — this kills all panes including the info bar
+  _close_workspace_panes "$dir"
 }
 
 # =============================================================================
