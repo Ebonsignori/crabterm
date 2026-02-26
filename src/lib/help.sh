@@ -22,6 +22,7 @@ show_cheat() {
 |  crab ws 1              Uses default project (or detects from cwd)            |
 |  crab projects          List all registered projects                          |
 |  crab projects rm <a>   Remove a project registration                         |
+|  crab projects delete <a> Delete project + workspaces + state (double confirm)|
 |  crab default pf        Set default project                                   |
 |  crab default           Show current default                                  |
 |                                                                               |
@@ -226,6 +227,7 @@ show_help() {
   echo "Multi-Project Commands:"
   echo "  @alias <cmd>      Run command against a specific project"
   echo "  projects          List registered projects"
+  echo "  projects delete   Delete project + workspaces + state"
   echo "  default [alias]   Show/set default project"
   echo "  init              Register a new project (asks for alias)"
   echo ""

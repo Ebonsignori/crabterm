@@ -190,6 +190,123 @@ run_test "resolve_command_aliases no config returns 1" "! resolve_command_aliase
 GLOBAL_CONFIG="$_saved_gc"
 
 # =============================================================================
+# remove_project Tests (full delete with double confirmation)
+# =============================================================================
+
+section "Project Delete Tests"
+
+# Stub out iterm_close_tab_by_session so tests don't need iTerm2
+iterm_close_tab_by_session() { :; }
+
+# --- Test: delete removes config file ---
+cat > "$PROJECTS_DIR/deleteme.yaml" << EOF
+session_name: deleteme
+workspace_base: $PROJ_TEST_DIR/dm-workspaces
+main_repo: $PROJ_TEST_DIR/dm-main
+workspaces:
+  prefix: dm-ws
+  branch_pattern: "dm-ws-{N}"
+EOF
+
+# Simulate inputs: y then exact alias
+output=$(echo -e "y\ndeleteme" | remove_project "deleteme" 2>&1)
+run_test "delete removes config file" "[ ! -f '$PROJECTS_DIR/deleteme.yaml' ]"
+
+# --- Test: delete clears default project ---
+cat > "$PROJECTS_DIR/defproj.yaml" << EOF
+session_name: defproj
+workspace_base: $PROJ_TEST_DIR/dp-workspaces
+main_repo: $PROJ_TEST_DIR/dp-main
+workspaces:
+  prefix: dp-ws
+  branch_pattern: "dp-ws-{N}"
+EOF
+cat > "$GLOBAL_CONFIG" << EOF
+default_project: defproj
+EOF
+
+output=$(echo -e "y\ndefproj" | remove_project "defproj" 2>&1)
+local_default=$(yq -r '.default_project // ""' "$GLOBAL_CONFIG" 2>/dev/null)
+run_test "delete clears default project" "[ '$local_default' = '' ] || [ '$local_default' = '\"\"' ]"
+
+# --- Test: delete removes workspace directories ---
+mkdir -p "$PROJ_TEST_DIR/ws-main"
+git -C "$PROJ_TEST_DIR/ws-main" init -q 2>/dev/null
+# Create a fake worktree directory (not a real worktree, rm -rf fallback handles it)
+mkdir -p "$PROJ_TEST_DIR/ws-workspaces/wsdel-1"
+mkdir -p "$PROJ_TEST_DIR/ws-workspaces/wsdel-2"
+
+cat > "$PROJECTS_DIR/wsdel.yaml" << EOF
+session_name: wsdel
+workspace_base: $PROJ_TEST_DIR/ws-workspaces
+main_repo: $PROJ_TEST_DIR/ws-main
+workspaces:
+  prefix: wsdel
+  branch_pattern: "wsdel-{N}"
+EOF
+
+output=$(echo -e "y\nwsdel" | remove_project "wsdel" 2>&1)
+run_test "delete removes workspace dirs" "[ ! -d '$PROJ_TEST_DIR/ws-workspaces/wsdel-1' ] && [ ! -d '$PROJ_TEST_DIR/ws-workspaces/wsdel-2' ]"
+rm -rf "$PROJ_TEST_DIR/ws-main"
+
+# --- Test: delete removes state directory ---
+mkdir -p "$CONFIG_DIR/state/statedel"
+echo '{}' > "$CONFIG_DIR/state/statedel/ws1.json"
+
+cat > "$PROJECTS_DIR/statedel.yaml" << EOF
+session_name: statedel
+workspace_base: $PROJ_TEST_DIR/sd-workspaces
+main_repo: $PROJ_TEST_DIR/sd-main
+workspaces:
+  prefix: sd-ws
+  branch_pattern: "sd-ws-{N}"
+EOF
+
+output=$(echo -e "y\nstatedel" | remove_project "statedel" 2>&1)
+run_test "delete removes state directory" "[ ! -d '$CONFIG_DIR/state/statedel' ]"
+
+# --- Test: delete cancelled on first confirmation ---
+cat > "$PROJECTS_DIR/keepme.yaml" << EOF
+session_name: keepme
+workspace_base: $PROJ_TEST_DIR/km-workspaces
+main_repo: $PROJ_TEST_DIR/km-main
+workspaces:
+  prefix: km-ws
+EOF
+
+output=$(echo "n" | remove_project "keepme" 2>&1)
+run_test "delete cancelled preserves config" "[ -f '$PROJECTS_DIR/keepme.yaml' ]"
+
+# --- Test: delete cancelled on wrong alias ---
+output=$(echo -e "y\nwrong" | remove_project "keepme" 2>&1)
+run_test "delete wrong alias preserves config" "[ -f '$PROJECTS_DIR/keepme.yaml' ]"
+rm -f "$PROJECTS_DIR/keepme.yaml"
+
+# --- Test: delete removes WIP directory ---
+mkdir -p "$CONFIG_DIR/wip/wipdel"
+echo "test" > "$CONFIG_DIR/wip/wipdel/data.txt"
+
+cat > "$PROJECTS_DIR/wipdel.yaml" << EOF
+session_name: wipdel
+workspace_base: $PROJ_TEST_DIR/wd-workspaces
+main_repo: $PROJ_TEST_DIR/wd-main
+workspaces:
+  prefix: wd-ws
+  branch_pattern: "wd-ws-{N}"
+EOF
+
+output=$(echo -e "y\nwipdel" | remove_project "wipdel" 2>&1)
+run_test "delete removes WIP directory" "[ ! -d '$CONFIG_DIR/wip/wipdel' ]"
+
+# Restore global config for cleanup
+cat > "$GLOBAL_CONFIG" << 'EOF'
+default_project: alpha
+aliases:
+  s: ws 1
+  k: kill
+EOF
+
+# =============================================================================
 # Cleanup
 # =============================================================================
 

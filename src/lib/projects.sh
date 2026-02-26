@@ -202,12 +202,12 @@ show_projects() {
   echo ""
 }
 
-# Remove a project registration
+# Remove a project registration (config only) or fully delete a project
 remove_project() {
   local alias="${1:-}"
 
   if [ -z "$alias" ]; then
-    error "Usage: crab projects rm <alias>"
+    error "Usage: crab projects delete <alias>"
     return 1
   fi
 
@@ -219,25 +219,135 @@ remove_project() {
     return 1
   fi
 
-  echo -e "Remove project registration for ${BOLD}@$alias${NC}?"
-  echo -e "  ${GRAY}(This only removes the config, not your workspaces or repo)${NC}"
-  read -p "  [y/N]: " confirm
+  # Load project settings from the config
+  local p_session p_ws_base p_main_repo p_prefix p_branch_pattern
+  p_session=$(yq -r '.session_name // ""' "$project_file" 2>/dev/null)
+  p_ws_base=$(yq -r '.workspace_base // ""' "$project_file" 2>/dev/null)
+  p_ws_base="${p_ws_base/#\~/$HOME}"
+  p_main_repo=$(yq -r '.main_repo // ""' "$project_file" 2>/dev/null)
+  p_main_repo="${p_main_repo/#\~/$HOME}"
+  p_prefix=$(yq -r '.workspaces.prefix // "workspace"' "$project_file" 2>/dev/null)
+  p_branch_pattern=$(yq -r '.workspaces.branch_pattern // "workspace-{N}"' "$project_file" 2>/dev/null)
+
+  # Inventory what exists
+  local ws_dirs=()
+  if [ -d "$p_ws_base" ]; then
+    for d in "$p_ws_base/$p_prefix"-*; do
+      [ -d "$d" ] && ws_dirs+=("$d")
+    done
+  fi
+  local state_dir="$CONFIG_DIR/state/$p_session"
+  local wip_dir="$CONFIG_DIR/wip/$alias"
+
+  # Show summary
+  echo ""
+  echo -e "${RED}${BOLD}Delete project @$alias${NC}"
+  echo ""
+  echo -e "  ${BOLD}Config:${NC}       $project_file"
+  if [ ${#ws_dirs[@]} -gt 0 ]; then
+    echo -e "  ${BOLD}Workspaces:${NC}   ${#ws_dirs[@]} found"
+    for d in "${ws_dirs[@]}"; do
+      echo -e "    ${GRAY}$d${NC}"
+    done
+  else
+    echo -e "  ${BOLD}Workspaces:${NC}   ${GRAY}none${NC}"
+  fi
+  if [ -d "$state_dir" ]; then
+    echo -e "  ${BOLD}State:${NC}        $state_dir"
+  fi
+  if [ -d "$wip_dir" ]; then
+    echo -e "  ${BOLD}WIP data:${NC}     $wip_dir"
+  fi
+  echo ""
+  echo -e "  ${GRAY}This will NOT delete your main repo at ${p_main_repo}${NC}"
+  echo ""
+
+  # First confirmation
+  read -p "Are you sure you want to delete project @$alias? [y/N]: " confirm
   if [ "$confirm" != "y" ] && [ "$confirm" != "Y" ]; then
     echo "Cancelled."
     return
   fi
 
+  # Second confirmation — type alias to confirm
+  read -p "Type the project alias to confirm: " confirm_alias
+  if [ "$confirm_alias" != "$alias" ]; then
+    echo "Alias does not match. Cancelled."
+    return
+  fi
+
+  echo ""
+
+  # Close any active iTerm2 tabs for this project's workspaces
+  if [ -d "$state_dir" ]; then
+    for f in "$state_dir"/ws*.json; do
+      [ -f "$f" ] || continue
+      local ws_num main_sid
+      ws_num=$(jq -r '.workspace' "$f" 2>/dev/null) || continue
+      main_sid=$(jq -r '.panes.main' "$f" 2>/dev/null) || continue
+      if [ -n "$main_sid" ] && [ "$main_sid" != "null" ]; then
+        echo "  Closing tab for workspace $ws_num..."
+        iterm_close_tab_by_session "$main_sid" 2>/dev/null || true
+      fi
+    done
+  fi
+
+  # Remove workspace directories via git worktree remove + fallback rm -rf
+  if [ ${#ws_dirs[@]} -gt 0 ] && [ -d "$p_main_repo" ]; then
+    for d in "${ws_dirs[@]}"; do
+      local ws_basename
+      ws_basename=$(basename "$d")
+      echo "  Removing worktree $ws_basename..."
+      git -C "$p_main_repo" worktree remove "$d" --force 2>/dev/null || true
+      [ -d "$d" ] && rm -rf "$d"
+
+      # Delete the workspace branch if it exists
+      local ws_num="${ws_basename##*-}"
+      local branch_name="${p_branch_pattern//\{N\}/$ws_num}"
+      if git -C "$p_main_repo" show-ref --verify --quiet "refs/heads/$branch_name" 2>/dev/null; then
+        local in_use
+        in_use=$(git -C "$p_main_repo" worktree list 2>/dev/null | grep -c "\[$branch_name\]" || true)
+        if [ "$in_use" = "0" ]; then
+          echo "  Deleting branch $branch_name..."
+          git -C "$p_main_repo" branch -D "$branch_name" 2>/dev/null || true
+        fi
+      fi
+    done
+  fi
+
+  # Remove workspace base directory if empty
+  if [ -d "$p_ws_base" ]; then
+    rmdir "$p_ws_base" 2>/dev/null || true
+  fi
+
+  # Remove state directory
+  if [ -d "$state_dir" ]; then
+    echo "  Removing state directory..."
+    rm -rf "$state_dir"
+  fi
+
+  # Remove WIP directory
+  if [ -d "$wip_dir" ]; then
+    echo "  Removing WIP data..."
+    rm -rf "$wip_dir"
+  fi
+
+  # Remove config file
+  echo "  Removing config..."
   rm "$project_file"
 
+  # Clear default project if it was this alias
   if [ -f "$GLOBAL_CONFIG" ]; then
-    local current_default=$(yq -r '.default_project // ""' "$GLOBAL_CONFIG" 2>/dev/null)
+    local current_default
+    current_default=$(yq -r '.default_project // ""' "$GLOBAL_CONFIG" 2>/dev/null)
     if [ "$current_default" = "$alias" ]; then
       yq -i '.default_project = ""' "$GLOBAL_CONFIG"
       echo -e "  ${YELLOW}Cleared default project (was @$alias)${NC}"
     fi
   fi
 
-  success "Removed project @$alias"
+  echo ""
+  success "Deleted project @$alias"
 }
 
 # Set or show the default project
