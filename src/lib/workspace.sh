@@ -470,6 +470,7 @@ create_workspace_layout() {
   local port_msg=$5
   local mode=$6  # "new" or "add"
   local ws_num="${7:-}"  # workspace number (optional, extracted from name if not provided)
+  local infobar_override="${8:-}"  # optional: custom infobar command (skips get_infobar_command)
 
   # Create window or tab
   local ids=""
@@ -549,7 +550,11 @@ create_workspace_layout() {
   # then resize again after a delay to catch post-window-manager resize
   if [ -n "$info_sid" ]; then
     local infobar_cmd
-    infobar_cmd=$(get_infobar_command "$dir")
+    if [ -n "$infobar_override" ]; then
+      infobar_cmd="$infobar_override"
+    else
+      infobar_cmd=$(get_infobar_command "$dir")
+    fi
     iterm_send_text "$info_sid" "cd '$dir' && clear && $infobar_cmd"
     sleep 0.3
     iterm_resize_session "$info_sid" 3
@@ -1137,6 +1142,71 @@ create_new_workspace() {
 
   echo -e "${CYAN}Creating new workspace $next_num...${NC}"
   open_workspace "$next_num"
+}
+
+# =============================================================================
+# Main Workspace (open main repo with workspace layout)
+# =============================================================================
+
+open_main_workspace() {
+  local dir="$MAIN_REPO"
+  local ws_id="main"
+  local window_name="@${PROJECT_ALIAS} main"
+
+  # Reconnect if already open
+  if state_workspace_exists "$SESSION_NAME" "$ws_id"; then
+    echo -e "${CYAN}Switching to main workspace...${NC}"
+    state_load_workspace "$SESSION_NAME" "$ws_id"
+
+    # Refresh info bar
+    if [ -n "$WS_INFO_SID" ] && [ "$WS_INFO_SID" != "null" ]; then
+      iterm_send_interrupt "$WS_INFO_SID"
+      sleep 0.3
+      local infobar_cmd
+      infobar_cmd=$(get_main_infobar_command "$dir")
+      iterm_send_text "$WS_INFO_SID" "clear && $infobar_cmd"
+    fi
+
+    iterm_focus_session "$WS_MAIN_SID"
+    return
+  fi
+
+  echo -e "${CYAN}Opening main workspace...${NC}"
+  echo "  Directory: $dir"
+
+  # Write metadata
+  local meta_file="$dir/.crabterm-meta"
+  echo '{"type":"main"}' > "$meta_file"
+  ensure_crabterm_git_excludes "$dir"
+
+  # Get pane commands from config
+  local dev_cmd=$(get_pane_command "server")
+  local claude_cmd=$(get_pane_command "main")
+
+  # Get custom infobar command for main workspace
+  local infobar_cmd
+  infobar_cmd=$(get_main_infobar_command "$dir")
+
+  # Create layout with main-specific infobar
+  create_workspace_layout "$window_name" "$dir" "$dev_cmd" "$claude_cmd" "" "new" "$ws_id" "$infobar_cmd"
+}
+
+# Close main workspace panes and remove state (no WIP save, no git cleanup)
+quit_main_workspace() {
+  local dir="$1"
+  local ws_id="main"
+
+  if state_load_workspace "$SESSION_NAME" "$ws_id"; then
+    state_remove_workspace "$SESSION_NAME" "$ws_id"
+
+    # Close the entire tab
+    local close_sid="${WS_INFO_SID:-$WS_MAIN_SID}"
+    iterm_close_tab_by_session "$close_sid" 2>/dev/null || true
+  fi
+
+  # Clean up metadata
+  rm -f "$dir/.crabterm-meta"
+  rm -f "$dir/.crabterm-infobar.sh"
 }
 
 # =============================================================================

@@ -54,7 +54,7 @@ main() {
 
   # For project-aware commands, resolve project (cwd-first, then default)
   case "${1:-}" in
-    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wn"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"merge"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
+    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wn"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"merge"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw"|"main")
       if [ -z "$PROJECT_ALIAS" ]; then
         if is_legacy_config; then
           check_legacy_migration
@@ -128,6 +128,17 @@ main() {
       load_config
       validate_config
       handle_merge_command "${@:2}"
+      ;;
+    "main")
+      if [ -z "$PROJECT_ALIAS" ]; then
+        error "The main command requires an explicit project alias"
+        echo ""
+        echo "Usage: crab @<alias> main"
+        exit 1
+      fi
+      load_config
+      validate_config
+      open_main_workspace
       ;;
     "ticket"|"tkt")
       load_config
@@ -436,6 +447,46 @@ main() {
       load_config
       validate_config
       cleanup_workspace_infobar "$cleanup_dir"
+      ;;
+    "_infobar-render-main")
+      # Internal command: render info bar for main workspace
+      local render_dir="${2:-}"
+      local pull_label="${3:-}"
+      if [ -z "$render_dir" ]; then
+        error "Usage: crabterm _infobar-render-main <dir>"
+        exit 1
+      fi
+      cd "$render_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project "" 2>/dev/null || true
+      load_config 2>/dev/null || true
+      render_main_infobar "$render_dir" || true
+      render_main_infobar_actions "$render_dir" "$pull_label"
+      ;;
+    "_quit-main")
+      # Internal command: quit main workspace (close tab, no WIP save)
+      local quit_dir="${2:-}"
+      if [ -z "$quit_dir" ]; then
+        error "Usage: crabterm _quit-main <dir>"
+        exit 1
+      fi
+      cd "$quit_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      load_config
+      validate_config
+      quit_main_workspace "$quit_dir"
+      ;;
+    "_merge-main")
+      # Internal command: run merge from main workspace info bar
+      local merge_dir="${2:-}"
+      if [ -z "$merge_dir" ]; then
+        error "Usage: crabterm _merge-main <dir>"
+        exit 1
+      fi
+      cd "$merge_dir"
+      resolve_project_from_cwd 2>/dev/null || resolve_project ""
+      load_config
+      validate_config
+      handle_merge_command
       ;;
     "update"|"upgrade")
       echo -e "${CYAN}Updating crabterm...${NC}"

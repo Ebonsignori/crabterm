@@ -188,10 +188,12 @@ handle_merge_command() {
 
   # Update main
   echo ""
-  echo -e "${CYAN}Updating main...${NC}"
-  git fetch origin 2>/dev/null || true
-  git checkout main 2>/dev/null
-  git pull origin main 2>/dev/null || true
+  echo -e "${CYAN}Fetching from origin...${NC}"
+  git fetch origin 2>&1 | sed 's/^/  /' || true
+  echo -e "${CYAN}Checking out main...${NC}"
+  git checkout main 2>&1 | sed 's/^/  /'
+  echo -e "${CYAN}Pulling latest main...${NC}"
+  git pull origin main 2>&1 | sed 's/^/  /' || true
 
   # Merge each branch
   local merged=0
@@ -201,7 +203,7 @@ handle_merge_command() {
     echo ""
     echo -e "${CYAN}Merging $branch...${NC}"
 
-    if git merge "$branch" --no-edit 2>/dev/null; then
+    if git merge "$branch" --no-edit; then
       echo -e "  ${GREEN}Merged successfully${NC}"
       merged=$((merged + 1))
     else

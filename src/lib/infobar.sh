@@ -318,3 +318,95 @@ CRABTERM_INFOBAR
 
   echo "bash '$script_file'"
 }
+
+# =============================================================================
+# Main Workspace Info Bar
+# =============================================================================
+
+# Render the info bar status line for the main workspace
+render_main_infobar() {
+  local dir="$1"
+
+  local title="\xF0\x9F\x9F\xA2"  # 🟢
+  if [ -n "$PROJECT_ALIAS" ]; then
+    title="$title @${PROJECT_ALIAS}"
+  fi
+  title="$title main"
+
+  local branch
+  branch=$(cd "$dir" && git branch --show-current 2>/dev/null) || true
+  if [ -n "$branch" ] && [ "$branch" != "main" ]; then
+    title="$title ($branch)"
+  fi
+
+  echo -e "$title"
+}
+
+# Render the interactive actions line for the main workspace
+# Optional $2: override pull label
+render_main_infobar_actions() {
+  local dir="$1"
+  local pull_label="${2:-Pull}"
+
+  local dim="\033[2m"
+  local bold="\033[1m"
+  local reset="\033[0m"
+
+  echo -e "  ${dim}[${reset}${bold}p${reset}${dim}]${reset} ${pull_label}  ${dim}|${reset}  ${dim}[${reset}${bold}h${reset}${dim}]${reset} Push  ${dim}|${reset}  ${dim}[${reset}${bold}m${reset}${dim}]${reset} Merge  ${dim}|${reset}  ${dim}[${reset}${bold}k${reset}${dim}]${reset} Kill  ${dim}|${reset}  ${dim}[${reset}${bold}q${reset}${dim}]${reset} Quit"
+}
+
+# Return the shell command to run in the main workspace info bar pane
+get_main_infobar_command() {
+  local dir="$1"
+  local crabterm_bin
+  crabterm_bin=$(realpath "$CRABTERM_DIR/crabterm" 2>/dev/null || echo "$CRABTERM_DIR/crabterm")
+
+  local script_file="$dir/.crabterm-infobar.sh"
+  cat > "$script_file" << CRABTERM_MAIN_INFOBAR
+#!/usr/bin/env bash
+while true; do
+  _out=\$('$crabterm_bin' _infobar-render-main '$dir' 2>/dev/null)
+  printf '\e[H\e[J%s' "\$_out"
+  read -t 60 -n 1 -s _k 2>/dev/null || _k=''
+  case \$_k in
+    p|P)
+      _out=\$('$crabterm_bin' _infobar-render-main '$dir' 'Pulling...' 2>/dev/null)
+      printf '\e[H\e[J%s' "\$_out"
+      cd '$dir' && git pull 2>/dev/null
+      _out=\$('$crabterm_bin' _infobar-render-main '$dir' '✓ Pulled' 2>/dev/null)
+      printf '\e[H\e[J%s' "\$_out"
+      sleep 2
+      ;;
+    h|H)
+      printf '\nPushing to origin main...\n'
+      cd '$dir' && git push origin main 2>&1
+      printf '\n\033[32m✓ Pushed\033[0m'
+      sleep 2
+      ;;
+    m|M)
+      printf '\n'
+      '$crabterm_bin' _merge-main '$dir' 2>/dev/null
+      sleep 2
+      ;;
+    k|K)
+      printf '\nKilling ports...\n'
+      '$crabterm_bin' _kill-ports '$dir' 2>/dev/null
+      sleep 2
+      ;;
+    q|Q)
+      printf '\nQuit main workspace? [y/N] '
+      read -n 1 -s _confirm
+      echo
+      if [ "\$_confirm" = 'y' ] || [ "\$_confirm" = 'Y' ]; then
+        '$crabterm_bin' _quit-main '$dir' 2>/dev/null
+        cd "\$HOME" && clear
+        exec "\${SHELL:-/bin/zsh}" -l
+      fi
+      ;;
+  esac
+done
+CRABTERM_MAIN_INFOBAR
+  chmod +x "$script_file"
+
+  echo "bash '$script_file'"
+}

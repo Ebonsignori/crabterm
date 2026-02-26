@@ -20,9 +20,15 @@ state_save_workspace() {
   mkdir -p "$state_dir"
 
   local state_file="$state_dir/ws${num}.json"
+  local ws_value="$num"
+  if [[ "$num" =~ ^[0-9]+$ ]]; then
+    ws_value="$num"
+  else
+    ws_value="\"$num\""
+  fi
   cat > "$state_file" << EOF
 {
-  "workspace": $num,
+  "workspace": $ws_value,
   "window_id": "$window_id",
   "tab_id": "$tab_id",
   "panes": {
