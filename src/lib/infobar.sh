@@ -176,6 +176,9 @@ render_infobar() {
 
   # Line 1: title
   local title="${lock_icon}"
+  if [ -n "$PROJECT_ALIAS" ]; then
+    title="$title @${PROJECT_ALIAS}"
+  fi
   if [ -n "$pr_number" ] && [ -n "$pr_title" ]; then
     title="$title PR #${pr_number}: ${pr_title}"
   elif [ -n "$name" ]; then

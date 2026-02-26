@@ -74,6 +74,11 @@ compute_tab_title() {
     fi
   fi
 
+  # Prefix with project alias when available
+  if [ -n "$PROJECT_ALIAS" ]; then
+    title="@${PROJECT_ALIAS} $title"
+  fi
+
   # Truncate to 60 chars
   if [ ${#title} -gt 60 ]; then
     title="${title:0:57}..."
