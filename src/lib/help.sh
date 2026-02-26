@@ -103,6 +103,14 @@ show_cheat() {
 |                                                                               |
 +===============================================================================+
 |                                                                               |
+|  MERGE COMMANDS (crab merge ...)                                              |
+|  ────────────────────────────────────────────────────────────────────────     |
+|  crab merge              Merge all workspace branches into main               |
+|  crab merge <N>          Merge only workspace N's branch                      |
+|  crab merge --dry-run    Show what would be merged (no changes)               |
+|                                                                               |
++===============================================================================+
+|                                                                               |
 |  TICKET COMMANDS (crab ticket ...)                                            |
 |  ────────────────────────────────────────────────────────────────────────     |
 |  crab ticket ENG-123       Auto-create workspace for ticket                   |
@@ -210,6 +218,11 @@ show_help() {
   echo "  pr <PR>           Create/reopen workspace for a GitHub PR"
   echo "  ws <N> pr <PR>    Use specific workspace for PR"
   echo "  Formats: 123, repo#456, https://github.com/.../pull/789"
+  echo ""
+  echo "Merge Commands:"
+  echo "  merge             Merge all workspace branches into main"
+  echo "  merge <N>         Merge only workspace N's branch"
+  echo "  merge --dry-run   Preview what would be merged"
   echo ""
   echo "Ticket Commands:"
   echo "  ticket <ID>       Create workspace for a Linear ticket"

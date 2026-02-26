@@ -23,6 +23,7 @@ source "$LIB/wip.sh"
 source "$LIB/session.sh"
 source "$LIB/review.sh"
 source "$LIB/pr.sh"
+source "$LIB/merge.sh"
 source "$LIB/ticket.sh"
 source "$LIB/doctor.sh"
 source "$LIB/init.sh"
@@ -53,7 +54,7 @@ main() {
 
   # For project-aware commands, resolve project (cwd-first, then default)
   case "${1:-}" in
-    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wn"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
+    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wn"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"merge"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
       if [ -z "$PROJECT_ALIAS" ]; then
         if is_legacy_config; then
           check_legacy_migration
@@ -122,6 +123,11 @@ main() {
       load_config
       validate_config
       handle_pr_command "${@:2}"
+      ;;
+    "merge")
+      load_config
+      validate_config
+      handle_merge_command "${@:2}"
       ;;
     "ticket"|"tkt")
       load_config

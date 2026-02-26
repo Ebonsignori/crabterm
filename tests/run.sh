@@ -24,6 +24,7 @@ TEST_FILES=(
   test_projects
   test_state
   test_session
+  test_merge
   test_structure
 )
 
