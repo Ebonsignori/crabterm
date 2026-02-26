@@ -198,7 +198,21 @@ show_init() {
   # Workspace base
   local repo_name=$(basename "$main_repo")
   local repo_parent=$(dirname "$main_repo")
-  local default_base="$repo_parent/${repo_name}-workspaces"
+
+  local global_ws_base=""
+  if [ -f "$GLOBAL_CONFIG" ]; then
+    global_ws_base=$(yq -r '.default_workspace_base // ""' "$GLOBAL_CONFIG" 2>/dev/null)
+    [ "$global_ws_base" = "null" ] && global_ws_base=""
+  fi
+
+
+  local default_base
+  if [ -n "$global_ws_base" ]; then
+    default_base="${global_ws_base/\{alias\}/$alias_input}"
+    default_base="${default_base/#\~/$HOME}"
+  else
+    default_base="$repo_parent/${repo_name}-workspaces"
+  fi
 
   echo ""
   echo -e "Where should workspaces be created?"

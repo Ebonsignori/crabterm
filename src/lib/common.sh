@@ -41,3 +41,30 @@ success() {
 command_exists() {
   command -v "$1" &>/dev/null
 }
+
+# Check required dependencies are installed
+check_deps() {
+  local missing=0
+  if ! command_exists yq; then
+    error "yq is required but not installed."
+    echo "  Install with: brew install yq"
+    missing=$((missing + 1))
+  fi
+  if ! command_exists git; then
+    error "git is required but not installed."
+    missing=$((missing + 1))
+  fi
+  if ! command_exists jq; then
+    error "jq is required but not installed."
+    echo "  Install with: brew install jq"
+    missing=$((missing + 1))
+  fi
+  if [ ! -d "/Applications/iTerm.app" ] && [ ! -d "$HOME/Applications/iTerm.app" ]; then
+    error "iTerm2 is required but not installed."
+    echo "  Install from: https://iterm2.com"
+    missing=$((missing + 1))
+  fi
+  if [ $missing -gt 0 ]; then
+    exit 1
+  fi
+}

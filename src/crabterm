@@ -31,6 +31,12 @@ source "$LIB/infobar.sh"
 source "$LIB/help.sh"
 
 main() {
+  # Allow --version and help without deps
+  case "${1:-}" in
+    "--version"|"-v"|"help"|"-h"|"--help"|"cheat") ;;
+    *) check_deps ;;
+  esac
+
   # @alias stripping: crab @pf ws 1 → resolve project, then route "ws 1"
   PROJECT_ALIAS=""
   if [[ "${1:-}" == @* ]]; then
@@ -47,7 +53,7 @@ main() {
 
   # For project-aware commands, resolve project (cwd-first, then default)
   case "${1:-}" in
-    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
+    ""|"ws"|"workspace"|"restart"|"reset"|"refresh"|"continue"|"resume"|"cleanup"|"clean"|"destroy"|"rm"|"remove"|"new"|"create"|"wn"|"wip"|"save"|"config"|"doctor"|"ports"|"shared"|"session"|"review"|"court"|"pr"|"ticket"|"tkt"|"lock"|"unlock"|"unlock-all"|"kill"|"switch"|"sw")
       if [ -z "$PROJECT_ALIAS" ]; then
         if is_legacy_config; then
           check_legacy_migration
@@ -131,7 +137,7 @@ main() {
     "alias"|"aliases")
       handle_alias_command "${@:2}"
       ;;
-    "new"|"create")
+    "new"|"create"|"wn")
       load_config
       validate_config
       create_new_workspace

@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
 # crabterm - configuration loading and management
 
-# Check if yq is installed
-check_yq() {
-  if ! command_exists yq; then
-    error "yq is required but not installed."
-    echo "Install with:"
-    echo "  brew install yq       # macOS"
-    echo "  go install github.com/mikefarah/yq/v4@latest  # Go"
-    exit 1
-  fi
-}
-
 # Load a config value, with optional default
 # Usage: config_get "path.to.value" "default"
 config_get() {
@@ -107,8 +96,6 @@ load_config() {
   if [ "$_config_loaded" = true ]; then
     return
   fi
-
-  check_yq
 
   if ! config_exists; then
     return

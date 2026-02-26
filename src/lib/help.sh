@@ -34,7 +34,7 @@ show_cheat() {
 |  ────────────────────────────────────────────────────────────────────────     |
 |  crab ws               Interactive menu (list + actions)                      |
 |  crab ws ls            List workspaces (non-interactive)                      |
-|  crab ws new           Create next available workspace                        |
+|  crab ws new (wn)      Create next available workspace                        |
 |  crab ws <N>           Open/create workspace N                                |
 |  crab ws <N> --separate   Open in new terminal window                         |
 |  crab ws <N> restart   Reset git + restart panes (recreates full layout)      |
@@ -130,7 +130,7 @@ show_cheat() {
 |  ────────────────────────────────────────────────────────────────────────     |
 |  crab alias              List all aliases                                     |
 |  crab alias set cu cleanup          Set alias: cu -> cleanup                  |
-|  crab alias set wn "ws new"         Multi-word: wn -> ws new                  |
+|  crab alias set rr "ws restart"     Multi-word: rr -> ws restart              |
 |  crab alias rm cu        Remove an alias                                      |
 |                                                                               |
 |  Config: ~/.crabterm/config.yaml (aliases section)                           |
@@ -165,7 +165,7 @@ show_help() {
   echo ""
   echo "Workspace Commands:"
   echo "  ws                List all workspaces"
-  echo "  ws new            Create next available workspace"
+  echo "  ws new (wn)       Create next available workspace"
   echo "  ws <N>            Open/create workspace N"
   echo "  ws <N> restart    Reset git + restart panes (recreates layout)"
   echo "  ws <N> cleanup    Kill window + reset to origin/main"
