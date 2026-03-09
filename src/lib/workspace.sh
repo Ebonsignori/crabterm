@@ -446,7 +446,18 @@ get_pane_command() {
   for ((i=0; i<panes_count; i++)); do
     local name=$(yq -r ".layout.panes[$i].name" "$CONFIG_FILE" 2>/dev/null)
     if [ "$name" = "$pane_name" ]; then
-      yq -r ".layout.panes[$i].command // \"\"" "$CONFIG_FILE" 2>/dev/null
+      local cmd
+      cmd=$(yq -r ".layout.panes[$i].command // \"\"" "$CONFIG_FILE" 2>/dev/null)
+
+      # If this is the main pane and ai_tool is explicitly set, use the configured AI command
+      if [ "$pane_name" = "main" ] && [ -n "$cmd" ]; then
+        local configured_tool=$(config_get "ai_tool" "")
+        if [ -n "$configured_tool" ]; then
+          cmd=$(get_ai_interactive_cmd)
+        fi
+      fi
+
+      echo "$cmd"
       return
     fi
   done
