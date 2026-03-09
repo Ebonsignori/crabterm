@@ -522,7 +522,13 @@ main() {
           if is_legacy_config; then
             check_legacy_migration
           fi
-          resolve_project_from_github_url "$1" 2>/dev/null || resolve_project_from_cwd 2>/dev/null || resolve_project ""
+          if ! resolve_project_from_github_url "$1" 2>/dev/null; then
+            local url_repo
+            url_repo=$(echo "$1" | sed -n 's|.*github\.com[:/]\([^/]*/[^/]*\).*|\1|p')
+            error "No project configured for ${url_repo:-this repository}"
+            echo "Run 'crab init' from the repo to configure it as a project first."
+            exit 1
+          fi
         fi
         load_config
         validate_config
