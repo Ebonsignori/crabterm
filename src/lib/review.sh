@@ -438,11 +438,11 @@ EOF
   # Write metadata for info bar
   _write_session_meta "$session_dir" "$name" "review"
 
-  # Start Claude in iTerm2 layout
-  read -p "Start Claude now? [Y/n] " start_now
+  # Start AI tool in iTerm2 layout
+  read -p "Start review now? [Y/n] " start_now
   if [[ ! "$start_now" =~ ^[Nn]$ ]]; then
     session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-    _open_session_layout "$name" "$session_dir" "claude --dangerously-skip-permissions --chrome 'context.md'"
+    _open_session_layout "$name" "$session_dir" "$(get_ai_interactive_cmd) 'context.md'"
   fi
 
   echo ""
@@ -464,7 +464,7 @@ _prompt_review_summary() {
   case "$choice" in
     a|A|"")
       echo -e "${CYAN}Generating summary...${NC}"
-      local summary=$(claude --continue --print -p "Summarize this review session in ONE short line (under 60 chars). Format: '<main finding/status> - <key detail>'. Example: 'Found 3 issues - N+1 query, missing index, race condition'. Just output the summary, nothing else." 2>/dev/null | tail -1)
+      local summary=$($(get_ai_print_cmd) "Summarize this review session in ONE short line (under 60 chars). Format: '<main finding/status> - <key detail>'. Example: 'Found 3 issues - N+1 query, missing index, race condition'. Just output the summary, nothing else." 2>/dev/null | tail -1)
       if [ -n "$summary" ]; then
         # Clean up the summary (remove quotes if present)
         summary="${summary#\"}"
@@ -564,9 +564,9 @@ EOF
   [ -n "$_TICKET_URL" ] && meta_args+=("ticket_url" "$_TICKET_URL")
   _write_session_meta "${meta_args[@]}"
 
-  # Start Claude in iTerm2 layout
+  # Start AI tool in iTerm2 layout
   session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  _open_session_layout "$name" "$session_dir" "claude --dangerously-skip-permissions --chrome 'context.md'"
+  _open_session_layout "$name" "$session_dir" "$(get_ai_interactive_cmd) 'context.md'"
 
   echo ""
   echo -e "  ${GRAY}Resume:${NC}  crab review resume $name"
@@ -715,9 +715,9 @@ EOF
     codex_cmd="codex exec --full-auto --skip-git-repo-check 'You are Reviewer B in a code review court. Read context.md for the full PR diff. Review independently for bugs, security issues, and code quality. Structure findings as Critical/Warning/Suggestion with file:line references. Save your complete findings to codex-review.md when done.'"
   fi
 
-  # Start Claude as the judge in iTerm2 layout (with Codex in server pane)
+  # Start AI tool as the judge in iTerm2 layout (with Codex in server pane)
   session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-  _open_session_layout "$name" "$session_dir" "claude --dangerously-skip-permissions --chrome 'context.md'" "$codex_cmd"
+  _open_session_layout "$name" "$session_dir" "$(get_ai_interactive_cmd) 'context.md'" "$codex_cmd"
 
   echo ""
   echo -e "  ${GRAY}Resume:${NC}  crab court resume $name"
@@ -930,11 +930,11 @@ EOF
     codex_cmd="codex exec --full-auto --skip-git-repo-check 'You are Reviewer B in a code review court. Read context.md for the full PR diff. Review independently for bugs, security issues, and code quality. Structure findings as Critical/Warning/Suggestion with file:line references. Save your complete findings to codex-review.md when done.'"
   fi
 
-  # Start Claude in iTerm2 layout (with Codex in server pane)
+  # Start AI tool in iTerm2 layout (with Codex in server pane)
   read -p "Start court session now? [Y/n] " start_now
   if [[ ! "$start_now" =~ ^[Nn]$ ]]; then
     session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
-    _open_session_layout "$name" "$session_dir" "claude --dangerously-skip-permissions --chrome 'context.md'" "$codex_cmd"
+    _open_session_layout "$name" "$session_dir" "$(get_ai_interactive_cmd) 'context.md'" "$codex_cmd"
   fi
 
   echo ""

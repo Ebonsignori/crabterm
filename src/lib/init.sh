@@ -12,6 +12,9 @@ session_name: ALIAS_PLACEHOLDER
 workspace_base: WORKSPACE_BASE_PLACEHOLDER
 main_repo: MAIN_REPO_PLACEHOLDER
 
+# AI tool: "claude" (default) or "codex"
+# ai_tool: claude
+
 workspaces:
   prefix: cloud-workspace
   branch_pattern: workspace-{N}
@@ -319,6 +322,9 @@ session_name: $alias_input
 workspace_base: $workspace_base
 main_repo: $main_repo
 
+# AI tool: "claude" (default) or "codex"
+# ai_tool: claude
+
 workspaces:
   prefix: ws
   branch_pattern: workspace-{N}
@@ -350,7 +356,7 @@ layout:
 #     - name: server
 #       command: "npm run dev"
 #     - name: main
-#       command: "claude"
+#       command: "claude"          # or set ai_tool: codex above
 #
 # shared_volume:
 #   enabled: true

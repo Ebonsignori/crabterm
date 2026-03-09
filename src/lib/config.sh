@@ -117,6 +117,9 @@ load_config() {
   SHARED_VOLUME_LINK=$(config_get "shared_volume.link_as" ".local")
   SHARED_VOLUME_ENABLED=$(config_get "shared_volume.enabled" "true")
 
+  # AI tool: "claude" (default) or "codex"
+  AI_TOOL=$(config_get "ai_tool" "claude")
+
   _config_loaded=true
 
   # WIP isolation: per-project WIP directories
@@ -186,4 +189,61 @@ EOF
   echo "  Backup: ~/.crabterm/config.yaml.bak"
   echo "  Default set to: @$alias_input"
   echo ""
+}
+
+# =============================================================================
+# AI Tool Helpers
+# =============================================================================
+
+# Get the configured AI tool name ("claude" or "codex")
+get_ai_tool() {
+  load_config
+  echo "${AI_TOOL:-claude}"
+}
+
+# Get the interactive AI command (for the main pane)
+# Returns e.g. "claude --dangerously-skip-permissions --chrome" or "codex --full-auto"
+get_ai_interactive_cmd() {
+  local tool=$(get_ai_tool)
+  case "$tool" in
+    codex)
+      echo "codex --full-auto"
+      ;;
+    *)
+      echo "claude --dangerously-skip-permissions --chrome"
+      ;;
+  esac
+}
+
+# Get the non-interactive print command (for WIP summaries, etc.)
+# Returns e.g. "claude --print" or "codex exec --full-auto -q"
+get_ai_print_cmd() {
+  local tool=$(get_ai_tool)
+  case "$tool" in
+    codex)
+      echo "codex exec --full-auto -q"
+      ;;
+    *)
+      echo "claude --print"
+      ;;
+  esac
+}
+
+# Get the non-interactive prompt command (for conflict resolution, etc.)
+# Returns e.g. "claude --dangerously-skip-permissions -p" or "codex exec --full-auto"
+get_ai_prompt_cmd() {
+  local tool=$(get_ai_tool)
+  case "$tool" in
+    codex)
+      echo "codex exec --full-auto"
+      ;;
+    *)
+      echo "claude --dangerously-skip-permissions -p"
+      ;;
+  esac
+}
+
+# Check if the configured AI tool is available
+ai_tool_exists() {
+  command_exists "$(get_ai_tool)"
 }

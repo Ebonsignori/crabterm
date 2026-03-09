@@ -725,9 +725,9 @@ EOF
 
   # Append initial prompt to claude command if provided
   if [ -n "$initial_prompt" ]; then
-    if ! [[ "$claude_cmd" == *"claude"* ]]; then
-      # Ticket/PR workflows require Claude — default to 'claude' if not configured
-      claude_cmd="claude"
+    if [ -z "$claude_cmd" ]; then
+      # Ticket/PR workflows require an AI tool — default to configured tool if not in layout
+      claude_cmd=$(get_ai_interactive_cmd)
     fi
     # Write prompt to a file and pipe it to avoid AppleScript escaping issues
     # (printf '%q' produces actual newlines that break osascript strings)
@@ -1036,8 +1036,9 @@ continue_workspace() {
   local dev_cmd=$(get_pane_command "server")
   local claude_cmd=$(get_pane_command "main")
 
-  # Add --continue to claude command
-  if [[ "$claude_cmd" == *"claude"* ]]; then
+  # Add --continue to AI tool command
+  local ai_tool=$(get_ai_tool)
+  if [[ "$claude_cmd" == *"$ai_tool"* ]]; then
     claude_cmd="$claude_cmd --continue"
   fi
 

@@ -78,10 +78,10 @@ wip_save() {
     slug=$(echo "$custom_name" | tr ' ' '-' | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]//g')
     summary="$custom_name"
   else
-    # Try to generate AI summary if claude is available
+    # Try to generate AI summary if AI tool is available
     slug="wip-$(date +%H%M)"
     summary="Work in progress"
-    if command_exists claude; then
+    if ai_tool_exists; then
       local all_diffs="$diff$staged$submodule_diffs"
       local summary_json=$(generate_wip_summary "$all_diffs")
       local parsed_slug=$(echo "$summary_json" | sed -n 's/.*"slug"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p')
@@ -165,14 +165,14 @@ generate_wip_summary() {
   local max_lines=100
   local truncated_diff=$(echo "$diff_content" | head -n $max_lines)
 
-  if command_exists claude; then
+  if ai_tool_exists; then
     local prompt="Based on this git diff, provide a JSON response with exactly this format (no markdown, just raw JSON):
 {\"slug\": \"short-kebab-case-name-max-30-chars\", \"summary\": \"One sentence describing the changes\"}
 
 Git diff:
 $truncated_diff"
 
-    local result=$(echo "$prompt" | timeout 30 claude --print 2>/dev/null || echo "")
+    local result=$(echo "$prompt" | timeout 30 $(get_ai_print_cmd) 2>/dev/null || echo "")
 
     if [ -n "$result" ]; then
       local json=$(echo "$result" | grep -o '{[^}]*}' | head -1)

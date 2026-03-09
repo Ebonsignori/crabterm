@@ -295,7 +295,7 @@ session_start() {
 
   session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  local claude_cmd="claude --dangerously-skip-permissions --chrome"
+  local claude_cmd=$(get_ai_interactive_cmd)
   if [ -f "$context_file" ]; then
     claude_cmd="$claude_cmd '$context_file'"
   fi
@@ -327,7 +327,7 @@ session_resume() {
 
   session_update "$name" "last_accessed" "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
-  local claude_cmd="claude --dangerously-skip-permissions --chrome --continue"
+  local claude_cmd="$(get_ai_interactive_cmd) --continue"
   _open_session_layout "$name" "$session_dir" "$claude_cmd" "" "resume"
 }
 

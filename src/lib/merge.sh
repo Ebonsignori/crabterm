@@ -16,12 +16,12 @@ _merge_usage() {
   echo "  crab merge --dry-run    Preview what would be merged"
 }
 
-_resolve_conflicts_with_claude() {
+_resolve_conflicts_with_ai() {
   local branch="$1"
+  local ai_tool=$(get_ai_tool)
 
-  if ! command_exists claude; then
-    warn "claude CLI not found — cannot auto-resolve conflicts"
-    echo "  Install: https://docs.anthropic.com/en/docs/claude-code"
+  if ! ai_tool_exists; then
+    warn "$ai_tool CLI not found — cannot auto-resolve conflicts"
     return 1
   fi
 
@@ -53,9 +53,9 @@ For each conflicted file:
 
 Do NOT leave any conflict markers. Preserve all functionality from both branches."
 
-  echo -e "  ${CYAN}Asking Claude to resolve conflicts...${NC}"
+  echo -e "  ${CYAN}Asking $ai_tool to resolve conflicts...${NC}"
   cd "$MAIN_REPO"
-  echo "$prompt" | claude --dangerously-skip-permissions -p 2>/dev/null
+  echo "$prompt" | $(get_ai_prompt_cmd) 2>/dev/null
 
   # Check if conflicts remain
   local remaining
@@ -208,7 +208,7 @@ handle_merge_command() {
       merged=$((merged + 1))
     else
       echo -e "  ${YELLOW}Conflicts detected — attempting auto-resolve...${NC}"
-      if _resolve_conflicts_with_claude "$branch"; then
+      if _resolve_conflicts_with_ai "$branch"; then
         echo -e "  ${GREEN}Conflicts resolved and merged${NC}"
         merged=$((merged + 1))
       else
