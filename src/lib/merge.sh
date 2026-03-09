@@ -55,7 +55,7 @@ Do NOT leave any conflict markers. Preserve all functionality from both branches
 
   echo -e "  ${CYAN}Asking $ai_tool to resolve conflicts...${NC}"
   cd "$MAIN_REPO"
-  echo "$prompt" | $(get_ai_prompt_cmd) 2>/dev/null
+  echo "$prompt" | ai_run_prompt
 
   # Check if conflicts remain
   local remaining

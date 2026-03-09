@@ -243,6 +243,73 @@ get_ai_prompt_cmd() {
   esac
 }
 
+# Build the shell command to pipe a prompt file into the AI tool
+# Usage: ai_pipe_prompt_file "/path/to/prompt"
+# Claude reads stdin; Codex takes a prompt file as an argument
+ai_pipe_prompt_file() {
+  local prompt_file="$1"
+  local tool=$(get_ai_tool)
+  case "$tool" in
+    codex)
+      echo "$(get_ai_interactive_cmd) \"\$(cat '$prompt_file')\""
+      ;;
+    *)
+      echo "cat '$prompt_file' | $(get_ai_interactive_cmd)"
+      ;;
+  esac
+}
+
+# Run the AI print command with a prompt string
+# Usage: echo "$prompt" | ai_run_print
+# Claude reads stdin; Codex takes prompt as argument
+ai_run_print() {
+  local tool=$(get_ai_tool)
+  local prompt
+  prompt=$(cat)  # read stdin
+  case "$tool" in
+    codex)
+      $(get_ai_print_cmd) "$prompt" 2>/dev/null
+      ;;
+    *)
+      echo "$prompt" | $(get_ai_print_cmd) 2>/dev/null
+      ;;
+  esac
+}
+
+# Run the AI print command with a timeout
+# Usage: echo "$prompt" | ai_run_print_with_timeout <seconds>
+ai_run_print_with_timeout() {
+  local seconds="${1:-30}"
+  local tool=$(get_ai_tool)
+  local prompt
+  prompt=$(cat)  # read stdin
+  case "$tool" in
+    codex)
+      timeout "$seconds" $(get_ai_print_cmd) "$prompt" 2>/dev/null || echo ""
+      ;;
+    *)
+      echo "$prompt" | timeout "$seconds" $(get_ai_print_cmd) 2>/dev/null || echo ""
+      ;;
+  esac
+}
+
+# Run the AI prompt command with a prompt string
+# Usage: echo "$prompt" | ai_run_prompt
+# Claude reads stdin; Codex takes prompt as argument
+ai_run_prompt() {
+  local tool=$(get_ai_tool)
+  local prompt
+  prompt=$(cat)  # read stdin
+  case "$tool" in
+    codex)
+      $(get_ai_prompt_cmd) "$prompt" 2>/dev/null
+      ;;
+    *)
+      echo "$prompt" | $(get_ai_prompt_cmd) 2>/dev/null
+      ;;
+  esac
+}
+
 # Check if the configured AI tool is available
 ai_tool_exists() {
   command_exists "$(get_ai_tool)"

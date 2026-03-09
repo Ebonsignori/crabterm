@@ -740,11 +740,11 @@ EOF
       # Ticket/PR workflows require an AI tool — default to configured tool if not in layout
       claude_cmd=$(get_ai_interactive_cmd)
     fi
-    # Write prompt to a file and pipe it to avoid AppleScript escaping issues
+    # Write prompt to a file to avoid AppleScript escaping issues
     # (printf '%q' produces actual newlines that break osascript strings)
     local prompt_file="$dir/.crabterm-prompt"
     echo "$initial_prompt" > "$prompt_file"
-    claude_cmd="cat '$prompt_file' | $claude_cmd"
+    claude_cmd=$(ai_pipe_prompt_file "$prompt_file")
   fi
 
   # Check if workspace already has an active tab

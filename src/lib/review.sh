@@ -464,7 +464,8 @@ _prompt_review_summary() {
   case "$choice" in
     a|A|"")
       echo -e "${CYAN}Generating summary...${NC}"
-      local summary=$($(get_ai_print_cmd) "Summarize this review session in ONE short line (under 60 chars). Format: '<main finding/status> - <key detail>'. Example: 'Found 3 issues - N+1 query, missing index, race condition'. Just output the summary, nothing else." 2>/dev/null | tail -1)
+      local review_prompt="Summarize this review session in ONE short line (under 60 chars). Format: '<main finding/status> - <key detail>'. Example: 'Found 3 issues - N+1 query, missing index, race condition'. Just output the summary, nothing else."
+      local summary=$(echo "$review_prompt" | ai_run_print | tail -1)
       if [ -n "$summary" ]; then
         # Clean up the summary (remove quotes if present)
         summary="${summary#\"}"

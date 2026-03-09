@@ -172,7 +172,7 @@ generate_wip_summary() {
 Git diff:
 $truncated_diff"
 
-    local result=$(echo "$prompt" | timeout 30 $(get_ai_print_cmd) 2>/dev/null || echo "")
+    local result=$(echo "$prompt" | ai_run_print_with_timeout 30)
 
     if [ -n "$result" ]; then
       local json=$(echo "$result" | grep -o '{[^}]*}' | head -1)
