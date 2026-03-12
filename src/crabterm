@@ -65,6 +65,11 @@ main() {
   esac
 
   case "${1:-}" in
+    "setup-terminal"|"setup"|"init"|"help"|"-h"|"--help"|"cheat"|"--version"|"-v"|"_"*) ;;
+    *) check_setup_reminder ;;
+  esac
+
+  case "${1:-}" in
     "")
       list_workspaces
       ;;
@@ -533,6 +538,16 @@ main() {
         load_config
         validate_config
         handle_pr_command "$1"
+      elif [[ "$1" =~ ^https://github\.com/[^/]+/[^/]+/issues/[0-9]+ ]]; then
+        if [ -z "$PROJECT_ALIAS" ]; then
+          if is_legacy_config; then
+            check_legacy_migration
+          fi
+          select_project_interactive "for issue: $1"
+        fi
+        load_config
+        validate_config
+        handle_ticket_command "$1"
       elif [[ "$1" =~ ^https://linear\.app/ ]]; then
         if [ -z "$PROJECT_ALIAS" ]; then
           if is_legacy_config; then
@@ -557,12 +572,22 @@ main() {
       else
         error "Unknown command: $1"
         echo ""
-        echo "Usage: crab ws <N>       Open workspace N"
-        echo "       crab @alias ws <N> Open workspace for specific project"
-        echo "       crab ws new       Create new workspace"
-        echo "       crab restart      Restart current workspace"
-        echo "       crab projects     List registered projects"
-        echo "       crab cheat        Show all commands"
+        echo "Common commands:"
+        echo "  crab ws <N>          Open workspace N"
+        echo "  crab ws new (wn)     Create new workspace"
+        echo "  crab restart         Restart current workspace"
+        echo "  crab pr <PR>         Open workspace for a GitHub PR"
+        echo "  crab ticket <ID>     Open workspace for a ticket"
+        echo "  crab merge           Merge workspace branches into main"
+        echo "  crab @<alias> main   Open main repo with workspace layout"
+        echo "  crab unlock-all      Unlock all non-active workspaces"
+        echo "  crab switch          Switch between active workspaces"
+        echo "  crab doctor          Diagnose issues (--fix to repair)"
+        echo "  crab projects        List registered projects"
+        echo "  crab wip save/ls     Save or list work-in-progress"
+        echo ""
+        echo "  crab help            Full command reference"
+        echo "  crab cheat           Cheat sheet"
         exit 1
       fi
       ;;

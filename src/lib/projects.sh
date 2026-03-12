@@ -153,6 +153,59 @@ resolve_command_aliases() {
   return 1
 }
 
+# Interactively prompt user to select a project
+# Sets CONFIG_FILE and PROJECT_ALIAS on success, exits on failure
+select_project_interactive() {
+  local context="${1:-}"
+
+  if [ ! -d "$PROJECTS_DIR" ] || [ -z "$(ls -A "$PROJECTS_DIR" 2>/dev/null)" ]; then
+    error "No projects registered. Run 'crab init' first."
+    exit 1
+  fi
+
+  # Collect project aliases
+  local aliases=()
+  local repos=()
+  for f in "$PROJECTS_DIR"/*.yaml; do
+    [ -f "$f" ] || continue
+    local alias=$(basename "$f" .yaml)
+    local repo=$(yq -r '.main_repo // ""' "$f" 2>/dev/null)
+    aliases+=("$alias")
+    repos+=("$repo")
+  done
+
+  # If only one project, use it directly
+  if [ ${#aliases[@]} -eq 1 ]; then
+    CONFIG_FILE="$PROJECTS_DIR/${aliases[0]}.yaml"
+    PROJECT_ALIAS="${aliases[0]}"
+    return
+  fi
+
+  echo -e "${CYAN}Select a project${NC}"
+  if [ -n "$context" ]; then
+    echo -e "  ${GRAY}$context${NC}"
+  fi
+  echo ""
+
+  local i
+  for i in "${!aliases[@]}"; do
+    echo -e "  $((i + 1))) ${BOLD}@${aliases[$i]}${NC}  ${GRAY}${repos[$i]}${NC}"
+  done
+  echo ""
+
+  local choice
+  read -p "  Project [1-${#aliases[@]}]: " choice
+
+  if ! [[ "$choice" =~ ^[0-9]+$ ]] || [ "$choice" -lt 1 ] || [ "$choice" -gt ${#aliases[@]} ]; then
+    error "Invalid selection"
+    exit 1
+  fi
+
+  local selected_alias="${aliases[$((choice - 1))]}"
+  CONFIG_FILE="$PROJECTS_DIR/${selected_alias}.yaml"
+  PROJECT_ALIAS="$selected_alias"
+}
+
 # List all registered projects
 show_projects() {
   local subcmd="${1:-}"

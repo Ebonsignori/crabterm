@@ -1143,6 +1143,19 @@ If you need clarification on the requirements, ask me before proceeding.'
   echo "${template//\{identifier\}/$identifier}"
 }
 
+build_github_issue_prompt() {
+  local issue_url="$1"
+  local default_prompt='Fetch the GitHub issue at {url} using your GitHub MCP tools. Read the issue title, description, labels, and any relevant comments. Then:
+1. Create and checkout a descriptive git branch based on the issue
+2. Analyze the requirements from the issue
+3. Create an implementation plan and enter plan mode for my approval before writing any code
+If you need clarification on the requirements, ask me before proceeding.'
+
+  local template
+  template=$(config_get "ticket.github_issue_prompt_template" "$default_prompt")
+  echo "${template//\{url\}/$issue_url}"
+}
+
 # Create a new workspace with the next available number
 create_new_workspace() {
   local next_num=$(find_next_workspace)
@@ -1420,13 +1433,18 @@ handle_ws_command() {
               error "Ticket identifier required: crab ws $num ticket <identifier>"
               exit 1
             fi
+            local original_ticket_input="$ticket_id"
             ticket_id=$(parse_ticket_identifier "$ticket_id")
-            if ! [[ "$ticket_id" =~ ^[A-Za-z0-9_-]+$ ]]; then
+            if ! [[ "$ticket_id" =~ ^#?[A-Za-z0-9_-]+$ ]]; then
               error "Invalid ticket identifier: $ticket_id"
               echo "Identifiers must be alphanumeric (dashes and underscores allowed)"
               exit 1
             fi
-            open_workspace "$num" "$(build_ticket_prompt "$ticket_id")"
+            if is_github_issue_url "$original_ticket_input"; then
+              open_workspace "$num" "$(build_github_issue_prompt "$original_ticket_input")"
+            else
+              open_workspace "$num" "$(build_ticket_prompt "$ticket_id")"
+            fi
             ;;
           "pr")
             handle_ws_pr_command "$num" "${2:-}"

@@ -70,6 +70,7 @@ show_cheat() {
 |  crab <N>              Shorthand for: crab ws <N>                             |
 |  crab <github-pr-url>  Shorthand for: crab pr <url>                          |
 |  crab <linear-url>     Shorthand for: crab ticket <url>                      |
+|  crab <github-issue>   Shorthand for: crab ticket <url> (prompts project)    |
 |                                                                               |
 +===============================================================================+
 |                                                                               |
@@ -115,6 +116,7 @@ show_cheat() {
 |  ────────────────────────────────────────────────────────────────────────     |
 |  crab ticket ENG-123       Auto-create workspace for ticket                   |
 |  crab ticket <linear-url>  Create workspace from Linear URL                   |
+|  crab ticket <github-issue> Create workspace from GitHub Issue URL            |
 |  crab ws 3 ticket ENG-123  Use workspace 3 for ticket                         |
 |  crab @pf ticket ENG-123   Ticket for specific project                        |
 |  Re-running the same ticket finds and reopens the existing workspace          |
@@ -192,6 +194,7 @@ show_help() {
   echo "  <N>               Shorthand for: ws <N>"
   echo "  <github-pr-url>   Shorthand for: pr <url>"
   echo "  <linear-url>      Shorthand for: ticket <url>"
+  echo "  <github-issue>    Shorthand for: ticket <url>"
   echo "  restart           Restart current workspace"
   echo "  cleanup           Cleanup current workspace"
   echo "  continue          Continue current workspace"
@@ -225,8 +228,8 @@ show_help() {
   echo "  merge --dry-run   Preview what would be merged"
   echo ""
   echo "Ticket Commands:"
-  echo "  ticket <ID>       Create workspace for a Linear ticket"
-  echo "  ticket <URL>      Create workspace from Linear URL"
+  echo "  ticket <ID>       Create workspace for a ticket"
+  echo "  ticket <URL>      Create workspace from Linear or GitHub Issue URL"
   echo "  ws <N> ticket <ID> Use specific workspace for ticket"
   echo ""
   echo "WIP Commands:"

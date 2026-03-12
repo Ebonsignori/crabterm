@@ -1,0 +1,58 @@
+{
+  "$schema": "https://www.raycast.com/schemas/extension.json",
+  "name": "crabterm",
+  "title": "Crabterm",
+  "description": "Manage crabterm workspaces from Raycast",
+  "icon": "command-icon.png",
+  "author": "evan",
+  "categories": [
+    "Developer Tools"
+  ],
+  "license": "MIT",
+  "commands": [
+    {
+      "name": "list-workspaces",
+      "title": "List Workspaces",
+      "description": "List all crabterm workspaces across projects",
+      "mode": "view"
+    },
+    {
+      "name": "new-workspace",
+      "title": "New Workspace",
+      "description": "Create a new crabterm workspace",
+      "mode": "view"
+    },
+    {
+      "name": "switch-project",
+      "title": "Switch Project",
+      "description": "List and manage crabterm projects",
+      "mode": "view"
+    },
+    {
+      "name": "quick-actions",
+      "title": "Quick Actions",
+      "description": "Common crabterm actions",
+      "mode": "view"
+    }
+  ],
+  "dependencies": {
+    "@raycast/api": "^1.83.0",
+    "@raycast/utils": "^2.2.3",
+    "js-yaml": "^4.1.0"
+  },
+  "devDependencies": {
+    "@raycast/eslint-config": "^1.0.11",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "22.x",
+    "@types/react": "18.x",
+    "eslint": "^8.57.0",
+    "prettier": "^3.3.0",
+    "typescript": "^5.5.0"
+  },
+  "scripts": {
+    "build": "ray build",
+    "dev": "ray develop",
+    "fix-lint": "ray lint --fix",
+    "lint": "ray lint"
+  }
+}

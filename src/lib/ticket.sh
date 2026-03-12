@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # crabterm - ticket command handler
 
-# Parse a ticket identifier: plain ID or Linear URL
+# Parse a ticket identifier: plain ID, Linear URL, or GitHub Issue URL
 # Linear URLs: https://linear.app/<workspace>/issue/ENG-123/optional-slug
-# Returns the ticket ID (e.g. ENG-123)
+# GitHub Issue URLs: https://github.com/<owner>/<repo>/issues/<number>
+# Returns the ticket ID (e.g. ENG-123 or #42)
 parse_ticket_identifier() {
   local input="$1"
 
@@ -13,8 +14,19 @@ parse_ticket_identifier() {
     return
   fi
 
+  # GitHub Issue URL
+  if [[ "$input" =~ ^https://github\.com/[^/]+/[^/]+/issues/([0-9]+) ]]; then
+    echo "#${BASH_REMATCH[1]}"
+    return
+  fi
+
   # Plain identifier
   echo "$input"
+}
+
+# Check if input is a GitHub Issue URL
+is_github_issue_url() {
+  [[ "$1" =~ ^https://github\.com/[^/]+/[^/]+/issues/[0-9]+ ]]
 }
 
 # Find an existing workspace whose branch contains the ticket identifier
@@ -58,6 +70,7 @@ handle_ticket_command() {
     echo "Examples:"
     echo "  crab ticket ENG-123"
     echo "  crab ticket https://linear.app/team/issue/ENG-123/title"
+    echo "  crab ticket https://github.com/owner/repo/issues/42"
     echo "  crab ws 3 ticket ENG-123"
     exit 1
   fi
@@ -68,7 +81,7 @@ handle_ticket_command() {
   # Extract ticket ID from URL if needed
   identifier=$(parse_ticket_identifier "$identifier")
 
-  if ! [[ "$identifier" =~ ^[A-Za-z0-9_-]+$ ]]; then
+  if ! [[ "$identifier" =~ ^#?[A-Za-z0-9_-]+$ ]]; then
     error "Invalid ticket identifier: $identifier"
     echo "Identifiers must be alphanumeric (dashes and underscores allowed)"
     exit 1
@@ -76,9 +89,11 @@ handle_ticket_command() {
 
   # Resolve ticket URL for clickable info bar link
   local ticket_url=""
+  local is_github_issue=false
   if [[ "$original_input" =~ ^https:// ]]; then
     # User passed a full URL — use it directly
     ticket_url="$original_input"
+    is_github_issue_url "$original_input" && is_github_issue=true
   else
     # Try to construct from config
     local base_url
@@ -141,5 +156,9 @@ handle_ticket_command() {
     "ticket" "$identifier" \
     "ticket_url" "$ticket_url"
 
-  open_workspace "$num" "$(build_ticket_prompt "$identifier")"
+  if [ "$is_github_issue" = true ]; then
+    open_workspace "$num" "$(build_github_issue_prompt "$ticket_url")"
+  else
+    open_workspace "$num" "$(build_ticket_prompt "$identifier")"
+  fi
 }
